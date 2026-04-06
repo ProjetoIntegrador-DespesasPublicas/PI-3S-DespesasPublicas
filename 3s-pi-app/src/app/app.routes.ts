@@ -1,3 +1,12 @@
-import { Routes } from '@angular/router';
+//import { Routes } from '@angular/router';
+import { provideRouter, withHashLocation, RouterOutlet, RouterLink } from '@angular/router';
 
-export const routes: Routes = [];
+
+const routes = [
+  { path: '', component: Home },
+  { path: 'Consultar Despesas', component: consultarDespesas }
+];
+
+export const routes: Routes = [
+providers: [provideRouter(routes, withHashLocation())]
+];

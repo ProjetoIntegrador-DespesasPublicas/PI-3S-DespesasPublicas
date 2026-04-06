@@ -3,7 +3,15 @@ import { Component, Input } from '@angular/core';
 @Component({
   selector: 'footer-comp',
   standalone: true,
-  template: `<p>© 2026 — Portal de Transparência Pública Orçamentária — Uso acadêmico.Desenvolvido para fins educacionais, com foco na Transparência Pública de Dados Orçamentários.</p>`
+  template: `
+    <footer class="flex items-end">
+      <div class="bg-footer h-(--footer) flex-auto">
+        <p>© {{ actualYear }} — Portal de Transparência Pública Orçamentária — Uso acadêmico.</p>
+        <p>Desenvolvido para fins educacionais, com foco na Transparência Pública de Dados Orçamentários.</p>
+      </div>
+    </footer>
+  `,
 })
 export class FooterComponent {
+  actualYear: number = new Date().getFullYear();
 }
