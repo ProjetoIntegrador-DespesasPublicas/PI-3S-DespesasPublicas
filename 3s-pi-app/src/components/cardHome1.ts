@@ -5,8 +5,8 @@ import { Component, Input } from '@angular/core';
   standalone: true,
   template: `
     <section class="flex">
-      <div class="contents">
-        <div>
+      <div class="cardHomeContainer">
+        <div class="item1">
           <h2>Você sabe o que são despesas publicas?</h2>
           <p>
             Despesas públicas são o conjunto
@@ -14,7 +14,7 @@ import { Component, Input } from '@angular/core';
             financiar serviços essenciais, como saúde, educação e infraestrutura.
           </p>
         </div>
-        <div>
+        <div class="item2">
           <img src="3s-pi-appsrcassetsimagem1.jpg" />
         </div>
       </div>
