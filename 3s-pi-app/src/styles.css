@@ -2,32 +2,89 @@
 
 @import 'tailwindcss';
 
-@footer {
---color-footer: #1080c4;
---spacing-footer: 7px;
+:root {
+  --color-footer: #1080c4;
+  --spacing-footer: 20px;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
---color-mint-500: oklch(0.72 0.11 178);
+  --color-mint-500: oklch(0.72 0.11 178);
 }
 
-@cardHomeContainer {
+.cardHomeContainer {
   display: grid;
   grid-template-columns: auto auto auto;
-  gap: 5px;
-  background-color: dodgerblue;
+  gap: 2px;
   padding: 5px;
+  box-shadow: var(--box-shadow);
 }
 
-@cardHomediv {
+.cardHomediv div {
   text-align: center;
-  padding: 10px;
+  padding: 20px;
   font-size: 30px;
 }
 
-@item1 {
+a:hover{
+  background-color: #D5DEE3;
+  text-decoration: none;
+  color: var(--color-footer);
+}
+
+.titleCard{
+  color: var(--color-footer);
+}
+
+.image1 {
+  width: 70px;
+  height: 50px;
+}
+
+.item1 {
   grid-column: 1 / span 2;
 }
 
+.menu {
+  display: flex;
+  gap: 20px;
+  justify-content: flex-end;
+  width: 100%;
+  height: 75px;
+  margin: auto;
+}
+
+ul {
+  position: left;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+ul li {
+  list-style: none;
+  font-size: 14px;
+  margin: 10px;
+}
+
+.tittle {
+  margin: auto;
+  padding: 1px;
+  float: left;
+  color: var(--color-footer);
+}
+
+container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer{
+  width: 100%;
+  background-color: var(--color-footer);
+  color: white;
+  padding: var(--spacing-footer);
+  text-align: center;
+}
