@@ -2,9 +2,35 @@
 
 @import 'tailwindcss';
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
 :root {
   --color-footer: #1080c4;
   --spacing-footer: 20px;
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
 }
 
 @custom-variant dark (&:where(.dark, .dark *));

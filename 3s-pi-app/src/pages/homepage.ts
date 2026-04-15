@@ -7,7 +7,7 @@ import { CardHomeComponent } from '../components/cardHome2';
   selector: 'app-homepage',
   standalone: true,
   imports: [FooterComponent, HeaderComponent, CardHomeComponent],
-  template: `
+    template: `
     <div class="homepage">
       <header-comp class="headerComp"></header-comp>
       <card-home class="cardHomeComp"></card-home>
