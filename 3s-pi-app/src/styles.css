@@ -114,3 +114,204 @@ container {
   padding: var(--spacing-footer);
   text-align: center;
 }
+
+/* =============================================
+   HEADER
+   ============================================= */
+
+.header-bar {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background-color: #f0f2f4;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.header-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-footer);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  flex: 1;
+  height: 100%;
+  margin: 0 16px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 16px;
+  font-size: 0.88rem;
+  color: #4a5568;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease,
+              color 0.2s ease,
+              border-bottom-color 0.2s ease;
+}
+
+.nav-active {
+  background-color: #e8f0fe;
+  color: var(--color-footer);
+  border-bottom: 2px solid var(--color-footer);
+}
+
+.nav-item:hover {
+  background-color: #dde3ea;
+  color: var(--color-footer);
+  border-bottom-color: var(--color-footer);
+}
+
+.theme-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--color-footer);
+  color: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: filter 0.2s ease;
+}
+
+.theme-btn:hover {
+  filter: brightness(1.15);
+}
+
+/* ── Header modo escuro ── */
+.dark .header-bar {
+  background-color: #1e2533;
+}
+
+.dark .header-title {
+  color: #90caf9;
+}
+
+.dark .nav-item {
+  color: #cbd5e0;
+}
+
+.dark .nav-active {
+  background-color: #1a2f4a;
+  color: #90caf9;
+  border-bottom-color: #90caf9;
+}
+
+.dark .nav-item:hover {
+  background-color: #1a2f4a;
+  color: #90caf9;
+  border-bottom-color: #90caf9;
+}
+
+.dark .theme-btn {
+  background-color: #003d72;
+}
+
+/* =============================================
+   FIM HEADER
+   ============================================= */
+
+   /* =============================================
+   CARD HOME — BOAS VINDAS (cardHome2)
+   ============================================= */
+
+.welcome-card-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 32px 24px 16px 24px;
+  box-sizing: border-box;
+}
+
+.welcome-card {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  max-width: 1000px;
+  width: 100%;
+  padding: 40px 48px;
+  background-color: #f5f7fa;
+  border-radius: 12px;
+  box-shadow:
+    0 14px 36px rgba(15, 23, 42, 0.16),
+    0 4px 10px rgba(15, 23, 42, 0.12);
+  box-sizing: border-box;
+}
+
+.welcome-card-image img {
+  display: block;
+  width: 260px;
+  height: 260px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.welcome-card-text {
+  flex: 1;
+  text-align: left;
+  padding-right: 40px;
+}
+
+.welcome-card-text h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--color-footer);
+}
+
+.welcome-card-text p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: #4a5568;
+  max-width: 420px;
+}
+
+@media (max-width: 768px) {
+  .welcome-card-wrapper {
+    padding: 24px 16px;
+  }
+
+  .welcome-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px;
+    gap: 24px;
+  }
+
+  .welcome-card-image img {
+    width: 100%;
+    height: auto;
+    max-width: 320px;
+  }
+
+  .welcome-card-text {
+    padding-right: 0;
+  }
+
+  .welcome-card-text h2 {
+    font-size: 1.3rem;
+  }
+}
+
+/* =============================================
+   FIM CARD HOME — BOAS VINDAS
+   ============================================= */

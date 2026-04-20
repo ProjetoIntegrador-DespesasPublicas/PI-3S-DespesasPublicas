@@ -1,24 +1,26 @@
-import { Component, Input } from '@angular/core';
+import { Component } from '@angular/core';
 
 @Component({
   selector: 'card-home',
   standalone: true,
   template: `
-    <section class="container">
-      <div class="cardHomeContainer">
-        <div class="item1">
-          <h2 class="titleCard">Você sabe o que são despesas publicas?</h2>
+    <section class="welcome-card-wrapper">
+      <div class="welcome-card">
+
+        <div class="welcome-card-image">
+          <img src="assets/imagem0.jpg" alt="Bem vindo ao portal" />
+        </div>
+
+        <div class="welcome-card-text">
+          <h2>Bem vindo ao Portal de Transparência Pública</h2>
           <p>
-            Despesas públicas são o conjunto
-            de gastos realizados pelo governo para atender as necessidades da sociedade e
-            financiar serviços essenciais, como saúde, educação e infraestrutura.
+            Acompanhe de forma simples e visual como os recursos públicos são aplicados,
+            com foco nas despesas e empenhos realizados pelo governo.
           </p>
         </div>
-        <div class="item2">
-          <img class="image1" src="./src/assets/imagem1.jpg" />
-        </div>
+
       </div>
     </section>
-  `,
+  `
 })
 export class CardHomeComponent {}
