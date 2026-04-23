@@ -8,7 +8,7 @@ import { Component } from '@angular/core';
       <div class="welcome-card">
 
         <div class="welcome-card-image">
-          <img src="assets/imagem0.jpg" alt="Bem vindo ao portal" />
+          <img src="imagem0.jpg" alt="Bem vindo ao portal" />
         </div>
 
         <div class="welcome-card-text">
