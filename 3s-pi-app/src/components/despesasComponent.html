@@ -1,0 +1,65 @@
+<div class="container">
+
+  <h1>📊 Dashboard de Despesas Públicas</h1>
+
+  <div *ngIf="loading" class="loading">
+    Carregando dados...
+  </div>
+
+  <div *ngIf="!loading">
+
+    <!-- RESUMO -->
+    <div class="cards">
+      <div class="card">
+        <h3>Orçado</h3>
+        <p>{{ resumo.orcado | currency:'BRL' }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Empenhado</h3>
+        <p>{{ resumo.empenhado | currency:'BRL' }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Liquidado</h3>
+        <p>{{ resumo.liquidado | currency:'BRL' }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Pago</h3>
+        <p>{{ resumo.pago | currency:'BRL' }}</p>
+      </div>
+    </div>
+
+    <!-- TABELA ORGÃO -->
+    <div class="table-container">
+      <h2>💼 Despesas por Órgão</h2>
+      <table>
+        <tr>
+          <th>Órgão</th>
+          <th>Valor</th>
+        </tr>
+        <tr *ngFor="let item of porOrgao">
+          <td>{{ item.txDescricaoOrgao }}</td>
+          <td>{{ item.valTotalEmpenhado | currency:'BRL' }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- TOP CREDORES -->
+    <div class="table-container">
+      <h2>🏢 Top Credores</h2>
+      <table>
+        <tr>
+          <th>Credor</th>
+          <th>Valor</th>
+        </tr>
+        <tr *ngFor="let item of topCredores">
+          <td>{{ item.txtRazaoSocial }}</td>
+          <td>{{ item.valTotalEmpenhado | currency:'BRL' }}</td>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+</div>

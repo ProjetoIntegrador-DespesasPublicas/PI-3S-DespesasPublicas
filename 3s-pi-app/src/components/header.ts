@@ -10,7 +10,7 @@ import { Component } from '@angular/core';
 
       <nav class="header-nav">
         <a href="#" class="nav-item nav-active">Início</a>
-        <a href="#" class="nav-item">Consultar Despesas</a>
+        <a href="despesas" class="nav-item">Consultar Despesas</a>
         <a href="#" class="nav-item">Consultar Empenhos</a>
         <a href="#" class="nav-item">Favoritos</a>
       </nav>
