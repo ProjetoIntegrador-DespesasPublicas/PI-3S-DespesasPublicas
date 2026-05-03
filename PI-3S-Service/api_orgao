@@ -1,0 +1,190 @@
+import requests
+import csv
+import time
+import os
+import datetime
+
+BASE_URL = "https://gateway.apilib.prefeitura.sp.gov.br/sf/sof/v4"
+
+
+# ==========================
+# CLIENTE API
+# ==========================
+class SOFClient:
+    def __init__(self, token):
+        self.headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+    def _get(self, endpoint, params):
+        url = f"{BASE_URL}/{endpoint}"
+        response = requests.get(url, headers=self.headers, params=params)
+
+        if response.status_code != 200:
+            raise Exception(f"Erro HTTP {response.status_code}: {response.text}")
+
+        data = response.json()
+
+        status = data.get("metadados", {}).get("txtStatus")
+        if status == "ERRO":
+            raise Exception(data["metadados"].get("txtMensagemErro"))
+
+        return data
+
+    def get_all_empenhos_mes(self, ano, mes):
+        resultados = []
+        pagina = 1
+
+        while True:
+            params = {
+                "anoEmpenho": ano,
+                "mesEmpenho": mes,
+                "numPagina": pagina
+            }
+
+            data = self._get("empenhos", params)
+            itens = data.get("lstEmpenhos", [])
+
+            if not itens:
+                break
+
+            resultados.extend(itens)
+
+            total_paginas = data.get("metadados", {}).get("qtdPaginas", 1)
+
+            print(f"   Página {pagina}/{total_paginas} - {len(itens)} registros")
+
+            if pagina >= total_paginas:
+                break
+
+            pagina += 1
+            time.sleep(0.2)
+
+        return resultados
+
+
+# ==========================
+# UTILIDADES
+# ==========================
+def to_float(valor):
+    try:
+        if valor in (None, "", "null"):
+            return 0.0
+        return float(valor)
+    except:
+        return 0.0
+
+
+def gerar_nome_arquivo():
+    agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"output/empenhos_2025_{agora}.csv"
+
+
+# ==========================
+# EXPORTAÇÃO CSV
+# ==========================
+def exportar_csv(empenhos, arquivo):
+    campos = [
+        "anoEmpenho",
+        "mesEmpenho",
+        "ano_mes",
+        "datEmpenho",
+        "nomEmpresa",
+        "txtDescricaoOrgao",
+        "txtDescricaoFuncao",
+        "txtDescricaoPrograma",
+        "txtRazaoSocial",
+        "valTotalEmpenhado",
+        "valEmpenhadoLiquido",
+        "valLiquidado",
+        "valPagoExercicio",
+        "valPagoRestos",
+        "valor_total_pago",
+        "valor_a_pagar"
+    ]
+
+    try:
+        with open(arquivo, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=campos)
+            writer.writeheader()
+
+            for e in empenhos:
+                total_empenhado = to_float(e.get("valTotalEmpenhado"))
+                empenhado_liquido = to_float(e.get("valEmpenhadoLiquido"))
+                liquidado = to_float(e.get("valLiquidado"))
+                pago_exercicio = to_float(e.get("valPagoExercicio"))
+                pago_restos = to_float(e.get("valPagoRestos"))
+
+                valor_total_pago = pago_exercicio + pago_restos
+                valor_a_pagar = empenhado_liquido - valor_total_pago
+
+                ano = e.get("anoEmpenho")
+                mes = e.get("mesEmpenho")
+
+                linha = {
+                    "anoEmpenho": ano,
+                    "mesEmpenho": mes,
+                    "ano_mes": f"{ano}-{str(mes).zfill(2)}",
+                    "datEmpenho": e.get("datEmpenho"),
+                    "nomEmpresa": e.get("nomEmpresa"),
+                    "txtDescricaoOrgao": e.get("txtDescricaoOrgao"),
+                    "txtDescricaoFuncao": e.get("txtDescricaoFuncao"),
+                    "txtDescricaoPrograma": e.get("txtDescricaoPrograma"),
+                    "txtRazaoSocial": e.get("txtRazaoSocial"),
+                    "valTotalEmpenhado": total_empenhado,
+                    "valEmpenhadoLiquido": empenhado_liquido,
+                    "valLiquidado": liquidado,
+                    "valPagoExercicio": pago_exercicio,
+                    "valPagoRestos": pago_restos,
+                    "valor_total_pago": valor_total_pago,
+                    "valor_a_pagar": valor_a_pagar
+                }
+
+                writer.writerow(linha)
+
+        print(f"\n✅ CSV gerado com sucesso: {arquivo}")
+
+    except PermissionError:
+        print("\n❌ ERRO: Permissão negada ao salvar o arquivo.")
+        print("👉 Possíveis causas:")
+        print("- O arquivo está aberto (Excel, etc.)")
+        print("- Pasta sem permissão de escrita")
+        print("\n👉 Soluções:")
+        print("- Feche o arquivo se estiver aberto")
+        print("- Rode o script novamente")
+
+
+# ==========================
+# MAIN
+# ==========================
+def main():
+    TOKEN = "74afe7f1-c239-3545-af30-b383914b0c76"
+
+    # cria pasta output se não existir
+    os.makedirs("output", exist_ok=True)
+
+    client = SOFClient(TOKEN)
+
+    todos_empenhos = []
+
+    for mes in range(1, 13):
+        print(f"\n📅 Buscando empenhos de 2025 - mês {mes}...")
+
+        try:
+            dados_mes = client.get_all_empenhos_mes(2025, mes)
+            print(f"✔ Total no mês {mes}: {len(dados_mes)}")
+
+            todos_empenhos.extend(dados_mes)
+
+        except Exception as e:
+            print(f"⚠ Erro no mês {mes}: {e}")
+
+    print(f"\n📊 TOTAL DE REGISTROS: {len(todos_empenhos)}")
+
+    arquivo = gerar_nome_arquivo()
+    exportar_csv(todos_empenhos, arquivo)
+
+
+if __name__ == "__main__":
+    main()
