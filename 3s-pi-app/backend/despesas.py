@@ -1,235 +1,591 @@
-from fastapi import FastAPI
-import requests
+import os, datetime, time
+
+def clearTerminal(temp):
+  time.sleep(temp)
+  os.system('cls' if os.name == 'nt' else 'clear')
+
+"""
+Backend FastAPI — SOF Dashboard 2026
+Prefeitura de São Paulo / Secretaria da Fazenda
+"""
+
+from fastapi import FastAPI, Query, HTTPException
+
+"""
+Backend FastAPI — SOF Dashboard 2026
+Prefeitura de São Paulo / Secretaria da Fazenda
+"""
+
+from fastapi import FastAPI, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import httpx
+import asyncio
 import pandas as pd
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
-
-app = FastAPI()
+from typing import Any
+import logging
 
 # ==============================
 # CONFIGURAÇÕES
 # ==============================
 
-BASE_URL = "https://gateway.apilib.prefeitura.sp.gov.br/sf/sof/v4"
-TOKEN = "74afe7f1-c239-3545-af30-b383914b0c76" 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger(__name__)
 
-HEADERS = {
-    "Authorization": f"Bearer {TOKEN}"
+app = FastAPI(
+    title="SOF Dashboard 2026",
+    description="Dashboard orçamentário — Prefeitura de São Paulo",
+    version="3.2.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+SOF_BASE    = "https://gateway.apilib.prefeitura.sp.gov.br/sf/sof/v4"
+SOF_TOKEN   = "74afe7f1-c239-3545-af30-b383914b0c76"
+SOF_HEADERS = {
+    "Authorization": f"Bearer {SOF_TOKEN}",
+    "accept": "application/json",
 }
 
-MAX_WORKERS = 5  # limite de concorrência (evita travamento)
+ANO_FIXO         = 2026
+CONCURRENCY      = 8
+CONCURRENCY_ORGS = 6
+CACHE_TTL        = 3600
+TOP_N_CREDORES   = 10
+TOP_N_PROGRAMAS  = 10
 
 
 # ==============================
-# DATA: ÚLTIMO MÊS FECHADO
+# CACHE ASSÍNCRONO COM TTL
 # ==============================
 
-def get_last_closed_month():
-    today = datetime.today()
+class AsyncTTLCache:
+    def __init__(self, ttl: int = CACHE_TTL, maxsize: int = 256):
+        self._store:  dict[str, tuple[Any, float]] = {}
+        self._ttl     = ttl
+        self._maxsize = maxsize
+        self._lock    = asyncio.Lock()
 
-    if today.month == 1:
-        return today.year - 1, 12
+    async def get(self, key: str) -> Any | None:
+        async with self._lock:
+            entry = self._store.get(key)
+            if not entry:
+                return None
+            value, exp = entry
+            if datetime.now().timestamp() > exp:
+                del self._store[key]
+                return None
+            return value
 
-    return today.year, today.month - 1
+    async def set(self, key: str, value: Any) -> None:
+        async with self._lock:
+            if len(self._store) >= self._maxsize:
+                oldest = min(self._store, key=lambda k: self._store[k][1])
+                del self._store[oldest]
+            self._store[key] = (value, datetime.now().timestamp() + self._ttl)
+
+    async def clear(self) -> None:
+        async with self._lock:
+            self._store.clear()
+
+    async def stats(self) -> dict:
+        async with self._lock:
+            now   = datetime.now().timestamp()
+            valid = sum(1 for _, exp in self._store.values() if exp > now)
+            return {"total": len(self._store), "validas": valid}
 
 
-# ==============================
-# REQUISIÇÕES
-# ==============================
-
-def fetch_page(endpoint, params, page, list_key):
-    local_params = params.copy()
-    local_params["numPagina"] = page
-
-    response = requests.get(
-        f"{BASE_URL}/{endpoint}",
-        headers=HEADERS,
-        params=local_params,
-        timeout=10
-    )
-    response.raise_for_status()
-
-    data = response.json()
-    return data.get(list_key, [])
-
-
-def fetch_all_parallel(endpoint, params, list_key):
-    # Primeira página (descobre total)
-    response = requests.get(
-        f"{BASE_URL}/{endpoint}",
-        headers=HEADERS,
-        params={**params, "numPagina": 1},
-        timeout=10
-    )
-    response.raise_for_status()
-
-    data = response.json()
-
-    all_data = data.get(list_key, [])
-    total_pages = data.get("metadados", {}).get("qtdPaginas", 1)
-
-    # Paralelizar páginas restantes
-    if total_pages > 1:
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = [
-                executor.submit(fetch_page, endpoint, params, page, list_key)
-                for page in range(2, total_pages + 1)
-            ]
-
-            for future in as_completed(futures):
-                try:
-                    all_data.extend(future.result())
-                except Exception as e:
-                    print(f"Erro ao buscar página: {e}")
-
-    return all_data
+cache = AsyncTTLCache()
 
 
 # ==============================
-# CACHE SIMPLES
+# LÓGICA DE DATAS
 # ==============================
 
-@lru_cache(maxsize=20)
-def get_despesas_raw(endpoint: str, ano: int, mes: int):
-    if endpoint == "despesas":
-        return fetch_all_parallel(
-            "despesas",
-            {"anoDotacao": ano, "mesDotacao": mes},
-            "lstDespesas"
+def get_mes_disponivel() -> int:
+    hoje = datetime.today()
+    if hoje.year < ANO_FIXO:
+        return 1
+    if hoje.year > ANO_FIXO:
+        return 12
+    return max(1, hoje.month - 1)
+
+
+def get_meses_disponiveis() -> list[dict]:
+    nomes = [
+        "Janeiro","Fevereiro","Março","Abril",
+        "Maio","Junho","Julho","Agosto",
+        "Setembro","Outubro","Novembro","Dezembro",
+    ]
+    return [{"valor": m, "nome": nomes[m-1]} for m in range(1, get_mes_disponivel() + 1)]
+
+
+def validar_mes(mes: int) -> int:
+    max_mes = get_mes_disponivel()
+    if mes < 1 or mes > max_mes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Mês {mes} indisponível. Máximo com dados em 2026: {max_mes}."
         )
+    return mes
 
-    elif endpoint == "empenhos":
-        return fetch_all_parallel(
-            "empenhos",
-            {"anoEmpenho": ano, "mesEmpenho": mes},
-            "lstEmpenhos"
+
+# ==============================
+# CLIENTE HTTP
+# ==============================
+
+_http_client: httpx.AsyncClient | None = None
+
+
+def get_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            headers=SOF_HEADERS,
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
         )
+    return _http_client
 
-    return []
 
+@app.on_event("startup")
+async def startup():
+    get_client()
+    logger.info("HTTP client iniciado.")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    if _http_client and not _http_client.is_closed:
+        await _http_client.aclose()
+    logger.info("HTTP client encerrado.")
+
+
+# ==============================
+# PAGINAÇÃO PARALELA
+# ==============================
+
+async def _fetch_page(
+    endpoint: str,
+    params:   dict,
+    page:     int,
+    list_key: str,
+    sem:      asyncio.Semaphore,
+) -> list:
+    async with sem:
+        try:
+            resp = await get_client().get(
+                f"{SOF_BASE}/{endpoint}",
+                params={**params, "numPagina": page},
+            )
+            resp.raise_for_status()
+            return resp.json().get(list_key, [])
+        except Exception as exc:
+            logger.warning(f"[SOF] {endpoint} pág {page} falhou: {exc}")
+            return []
+
+
+async def fetch_all_pages(
+    endpoint:  str,
+    params:    dict,
+    list_key:  str,
+    max_pages: int = 20,
+) -> list:
+    try:
+        resp = await get_client().get(
+            f"{SOF_BASE}/{endpoint}",
+            params={**params, "numPagina": 1},
+        )
+        resp.raise_for_status()
+        body = resp.json()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"SOF API erro {exc.response.status_code} em /{endpoint}"
+        )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=504, detail=f"Timeout SOF API: {exc}")
+
+    meta        = body.get("metadados", {})
+    total_pages = min(meta.get("qtdPaginas", 1), max_pages)
+    records     = body.get(list_key, [])
+
+    if meta.get("txtStatus") == "SEM_REGISTROS" or total_pages <= 1:
+        return records
+
+    sem   = asyncio.Semaphore(CONCURRENCY)
+    pages = await asyncio.gather(*[
+        _fetch_page(endpoint, params, p, list_key, sem)
+        for p in range(2, total_pages + 1)
+    ])
+    for pg in pages:
+        records.extend(pg)
+
+    logger.info(f"[SOF] /{endpoint} → {len(records)} registros ({total_pages} págs)")
+    return records
+
+
+# ==============================
+# CACHE + FETCH
+# ==============================
+
+async def get_cached(
+    endpoint:  str,
+    params:    dict,
+    list_key:  str,
+    max_pages: int = 20,
+) -> list:
+    key = f"{endpoint}:{sorted(params.items())}"
+    hit = await cache.get(key)
+    if hit is not None:
+        logger.info(f"[HIT]  {key}")
+        return hit
+    logger.info(f"[MISS] {key}")
+    result = await fetch_all_pages(endpoint, params, list_key, max_pages)
+    await cache.set(key, result)
+    return result
+
+
+# ==============================
+# HELPERS PANDAS
+# ==============================
+
+def to_df(raw: list) -> pd.DataFrame:
+    return pd.DataFrame(raw).fillna(0) if raw else pd.DataFrame()
+
+
+def safe_sum(df: pd.DataFrame, col: str) -> float:
+    if col not in df.columns:
+        return 0.0
+    return float(pd.to_numeric(df[col], errors="coerce").fillna(0).sum())
+
+
+def safe_numeric(series: pd.Series) -> pd.Series:
+    return pd.to_numeric(series, errors="coerce").fillna(0)
+
+
+# ==============================
+# POR ÓRGÃO
+# ==============================
+
+async def get_despesas_por_orgao(ano: int, mes: int) -> list[dict]:
+    """
+    1. Busca catálogo de órgãos (/orgaos)
+    2. Para cada órgão faz /despesas?codOrgao=X e soma valEmpenhado
+    3. Retorna lista ordenada por valor
+    """
+    orgaos = await get_cached("orgaos", {"anoExercicio": ano}, "lstOrgaos", max_pages=5)
+    if not orgaos:
+        logger.warning("[ORGAOS] Lista vazia.")
+        return []
+
+    logger.info(f"[ORGAOS] Consultando {len(orgaos)} órgãos para {ano}/{mes}")
+
+    sem = asyncio.Semaphore(CONCURRENCY_ORGS)
+
+    async def fetch_orgao(orgao: dict) -> dict | None:
+        cod  = orgao.get("codOrgao")
+        nome = orgao.get("txtDescricaoOrgao", str(cod))
+        if not cod:
+            return None
+        async with sem:
+            try:
+                resp = await get_client().get(
+                    f"{SOF_BASE}/despesas",
+                    params={
+                        "anoDotacao": ano,
+                        "mesDotacao": mes,
+                        "codOrgao":   cod,
+                        "numPagina":  1,
+                    },
+                )
+                resp.raise_for_status()
+                records = resp.json().get("lstDespesas", [])
+                if not records:
+                    return None
+                df  = pd.DataFrame(records)
+                val = safe_sum(df, "valTotalEmpenhado")
+                if val <= 0:
+                    return None
+                return {
+                    "orgao":    nome,
+                    "codOrgao": cod,
+                    "valor":    round(val, 2),
+                }
+            except Exception as exc:
+                logger.warning(f"[ORGAO {cod}] {exc}")
+                return None
+
+    results = await asyncio.gather(*[fetch_orgao(o) for o in orgaos])
+    valid   = [r for r in results if r is not None]
+    valid.sort(key=lambda x: x["valor"], reverse=True)
+
+    logger.info(f"[ORGAOS] {len(valid)} órgãos com valor > 0")
+    return valid
+
+
+# ==============================
+# POR PROGRAMA
+# ==============================
+
+async def get_despesas_por_programa(ano: int, mes: int) -> list[dict]:
+    """
+    1. Busca catálogo de programas (/programas)
+    2. Para cada programa faz /despesas?codPrograma=X e soma valEmpenhado
+    3. Retorna top N ordenados por valor
+    """
+    programas = await get_cached(
+        "programas", {"anoExercicio": ano}, "lstProgramas", max_pages=3
+    )
+    if not programas:
+        logger.warning("[PROGRAMAS] Lista vazia.")
+        return []
+
+    logger.info(f"[PROGRAMAS] Consultando {len(programas)} programas para {ano}/{mes}")
+
+    sem = asyncio.Semaphore(CONCURRENCY_ORGS)
+
+    async def fetch_programa(prog: dict) -> dict | None:
+        cod  = prog.get("codPrograma")
+        nome = prog.get("txtDescricaoPrograma", str(cod))
+        if not cod:
+            return None
+        async with sem:
+            try:
+                resp = await get_client().get(
+                    f"{SOF_BASE}/despesas",
+                    params={
+                        "anoDotacao":  ano,
+                        "mesDotacao":  mes,
+                        "codPrograma": cod,
+                        "numPagina":   1,
+                    },
+                )
+                resp.raise_for_status()
+                records = resp.json().get("lstDespesas", [])
+                if not records:
+                    return None
+                df  = pd.DataFrame(records)
+                val = safe_sum(df, "valTotalEmpenhado")
+                if val <= 0:
+                    return None
+                return {
+                    "programa":    nome,
+                    "codPrograma": cod,
+                    "valor":       round(val, 2),
+                }
+            except Exception as exc:
+                logger.warning(f"[PROGRAMA {cod}] {exc}")
+                return None
+
+    results = await asyncio.gather(*[fetch_programa(p) for p in programas])
+    valid   = [r for r in results if r is not None]
+    valid.sort(key=lambda x: x["valor"], reverse=True)
+
+    logger.info(f"[PROGRAMAS] {len(valid)} programas com valor > 0")
+    return valid[:TOP_N_PROGRAMAS]
+
+
+# ==============================
+# TOP CREDORES
+# ==============================
+
+async def get_top_credores(ano: int, mes: int) -> list[dict]:
+    """
+    /despesasCredor retorna lstDespesaCredores (atenção: não lstCredores).
+    Ordena por valTotalEmpenhado e devolve os top N.
+    """
+    raw = await get_cached(
+        "despesasCredor",
+        {"anoExercicio": ano, "mesEmpenho": mes},
+        "lstDespesaCredores",   # ← era "lstCredores", nome errado
+        max_pages=10,
+    )
+    if not raw:
+        return []
+
+    df = to_df(raw)
+    logger.info(f"[CREDORES] {len(df)} registros — colunas: {df.columns.tolist()}")
+
+    required = {"txtRazaoSocial", "valTotalEmpenhado", "numCpfCnpj"}
+    if not required.issubset(df.columns):
+        logger.warning(f"[CREDORES] Colunas ausentes. Disponíveis: {df.columns.tolist()}")
+        return []
+
+    df["valTotalEmpenhado"] = safe_numeric(df["valTotalEmpenhado"])
+
+    result = (
+        df[["numCpfCnpj", "txtRazaoSocial", "valTotalEmpenhado"]]
+        .sort_values("valTotalEmpenhado", ascending=False)
+        .head(TOP_N_CREDORES)
+        .rename(columns={
+            "numCpfCnpj":        "codCredor",
+            "txtRazaoSocial":    "credor",
+            "valTotalEmpenhado": "valor",
+        })
+    )
+    result["valor"] = result["valor"].round(2)
+
+    logger.info(f"[CREDORES] {len(result)} credores retornados")
+    return result.to_dict(orient="records")
 
 # ==============================
 # ENDPOINTS
 # ==============================
 
-@app.get("/")
-def home():
-    return {"status": "API SOF rodando com sucesso 🚀"}
-
-
-# 🔹 Resumo geral
-@app.get("/despesas/resumo")
-def resumo_despesas():
-
-    ano, mes = get_last_closed_month()
-
-    raw = get_despesas_raw("despesas", ano, mes)
-
-    df = pd.DataFrame(raw).fillna(0)
-
+@app.get("/", tags=["Status"])
+async def home():
     return {
-        "ano": ano,
-        "mes": mes,
-        "orcado": float(df.get("valOrcadoAtualizado", pd.Series()).sum()),
-        "empenhado": float(df.get("valEmpenhado", pd.Series()).sum()),
-        "liquidado": float(df.get("valLiquidado", pd.Series()).sum()),
-        "pago": float(df.get("valPagoExercicio", pd.Series()).sum())
+        "status":         "ok",
+        "versao":         "3.2.0",
+        "ano":            ANO_FIXO,
+        "mes_disponivel": get_mes_disponivel(),
     }
 
 
-# 🔹 Por órgão
-@app.get("/despesas/por-orgao")
-def despesas_por_orgao():
+@app.get("/meses-disponiveis", tags=["Filtro"])
+async def meses_disponiveis():
+    return {
+        "ano":        ANO_FIXO,
+        "mes_padrao": get_mes_disponivel(),
+        "meses":      get_meses_disponiveis(),
+    }
 
-    ano, mes = get_last_closed_month()
 
-    raw = get_despesas_raw("empenhos", ano, mes)
+@app.get("/cache/stats", tags=["Admin"])
+async def cache_stats():
+    return await cache.stats()
 
-    if not raw:
-        return []
 
-    df = pd.DataFrame(raw)
+@app.get("/cache/clear", tags=["Admin"])
+async def limpar_cache():
+    await cache.clear()
+    return {"message": "Cache limpo."}
 
-    # 🔍 DEBUG (opcional - ajuda muito)
-    print("Colunas disponíveis:", df.columns.tolist())
 
-    # ✔️ valida coluna
-    if "txDescricaoOrgao" not in df.columns:
-        return {
-            "erro": "Coluna txDescricaoOrgao não encontrada",
-            "colunas_disponiveis": df.columns.tolist()
-        }
+# ──────────────────────────────────────────────────
+# DASHBOARD UNIFICADO
+# ──────────────────────────────────────────────────
 
-    if "valTotalEmpenhado" not in df.columns:
-        return {
-            "erro": "Coluna valTotalEmpenhado não encontrada"
-        }
+@app.get("/despesas/dashboard", tags=["Dashboard"])
+async def get_dashboard(
+    mes: int = Query(
+        default=None, ge=1, le=12,
+        description="Mês de 2026 (padrão: último mês fechado)"
+    )
+):
+    if mes is None:
+        mes = get_mes_disponivel()
+    else:
+        mes = validar_mes(mes)
 
-    # conversão segura
-    df["valTotalEmpenhado"] = pd.to_numeric(
-        df["valTotalEmpenhado"], errors="coerce"
+    ano = ANO_FIXO
+    logger.info(f"[DASHBOARD] {ano}/{mes:02d}")
+
+    # Todas as buscas em paralelo
+    resumo_fut   = get_cached("despesas",
+                              {"anoDotacao": ano, "mesDotacao": mes},
+                              "lstDespesas", max_pages=5)
+    orgao_fut    = get_despesas_por_orgao(ano, mes)
+    credores_fut = get_top_credores(ano, mes)
+    programa_fut = get_despesas_por_programa(ano, mes)
+
+    resumo_raw, por_orgao, top_credores, por_programa = await asyncio.gather(
+        resumo_fut, orgao_fut, credores_fut, programa_fut,
+        return_exceptions=True,
     )
 
-    grouped = (
-        df.groupby("txDescricaoOrgao")["valTotalEmpenhado"]
-        .sum()
-        .sort_values(ascending=False)
-        .reset_index()
-    )
+    def safe(val, default):
+        if isinstance(val, Exception):
+            logger.error(f"Erro na tarefa paralela: {val}")
+            return default
+        return val
 
-    return grouped.to_dict(orient="records")
+    resumo_raw   = safe(resumo_raw,   [])
+    por_orgao    = safe(por_orgao,    [])
+    top_credores = safe(top_credores, [])
+    por_programa = safe(por_programa, [])
 
-# 🔹 Top credores
-@app.get("/despesas/top-credores")
-def top_credores():
+    df_dot = to_df(resumo_raw)
 
-    ano, mes = get_last_closed_month()
+    resumo = {
+        "ano":       ano,
+        "mes":       mes,
+        "orcado":    safe_sum(df_dot, "valOrcadoAtualizado"),
+        "empenhado": safe_sum(df_dot, "valEmpenhado"),
+        "liquidado": safe_sum(df_dot, "valLiquidado"),
+        "pago":      safe_sum(df_dot, "valPagoExercicio"),
+    }
 
-    raw = get_despesas_raw("empenhos", ano, mes)
-
-    df = pd.DataFrame(raw)
-
-    if df.empty:
-        return []
-
-    df["valTotalEmpenhado"] = pd.to_numeric(
-        df.get("valTotalEmpenhado", 0), errors="coerce"
-    )
-
-    top = (
-        df.groupby("txtRazaoSocial")["valTotalEmpenhado"]
-        .sum()
-        .sort_values(ascending=False)
-        .head(10)
-        .reset_index()
-    )
-
-    return top.to_dict(orient="records")
+    return {
+        "meta": {
+            "ano":                 ano,
+            "mes":                 mes,
+            "registros_dotacoes":  len(resumo_raw),
+            "orgaos_retornados":   len(por_orgao),
+            "credores_retornados": len(top_credores),
+            "programas_retornados": len(por_programa),
+        },
+        "resumo":      resumo,
+        "porOrgao":    por_orgao,
+        "topCredores": top_credores,
+        "topProgramas": por_programa,
+    }
 
 
-# 🔹 Evolução por programa
-@app.get("/despesas/por-programa")
-def despesas_por_programa():
+# ──────────────────────────────────────────────────
+# ENDPOINTS INDIVIDUAIS
+# ──────────────────────────────────────────────────
 
-    ano, mes = get_last_closed_month()
+@app.get("/despesas/resumo", tags=["Despesas"])
+async def resumo_despesas(mes: int = Query(default=None, ge=1, le=12)):
+    if mes is None:
+        mes = get_mes_disponivel()
+    else:
+        mes = validar_mes(mes)
+    raw = await get_cached("despesas",
+                           {"anoDotacao": ANO_FIXO, "mesDotacao": mes},
+                           "lstDespesas", max_pages=5)
+    df = to_df(raw)
+    return {
+        "ano":       ANO_FIXO, "mes": mes,
+        "orcado":    safe_sum(df, "valOrcadoAtualizado"),
+        "empenhado": safe_sum(df, "valEmpenhado"),
+        "liquidado": safe_sum(df, "valLiquidado"),
+        "pago":      safe_sum(df, "valPagoExercicio"),
+    }
 
-    raw = get_despesas_raw("empenhos", ano, mes)
 
-    df = pd.DataFrame(raw)
+@app.get("/despesas/por-orgao", tags=["Despesas"])
+async def despesas_por_orgao(mes: int = Query(default=None, ge=1, le=12)):
+    if mes is None:
+        mes = get_mes_disponivel()
+    else:
+        mes = validar_mes(mes)
+    return await get_despesas_por_orgao(ANO_FIXO, mes)
 
-    if df.empty:
-        return []
 
-    df["valTotalEmpenhado"] = pd.to_numeric(
-        df.get("valTotalEmpenhado", 0), errors="coerce"
-    )
+@app.get("/despesas/top-credores", tags=["Despesas"])
+async def top_credores_endpoint(mes: int = Query(default=None, ge=1, le=12)):
+    if mes is None:
+        mes = get_mes_disponivel()
+    else:
+        mes = validar_mes(mes)
+    return await get_top_credores(ANO_FIXO, mes)
 
-    grouped = (
-        df.groupby("txtDescricaoPrograma")["valTotalEmpenhado"]
-        .sum()
-        .sort_values(ascending=False)
-        .reset_index()
-    )
 
-    return grouped.to_dict(orient="records")
+@app.get("/despesas/por-programa", tags=["Despesas"])
+async def despesas_por_programa(mes: int = Query(default=None, ge=1, le=12)):
+    if mes is None:
+        mes = get_mes_disponivel()
+    else:
+        mes = validar_mes(mes)
+    return await get_despesas_por_programa(ANO_FIXO, mes)
