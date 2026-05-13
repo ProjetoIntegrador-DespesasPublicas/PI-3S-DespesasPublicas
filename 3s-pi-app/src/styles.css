@@ -2,6 +2,12 @@
 
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-mint-500: oklch(0.72 0.11 178);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -9,8 +15,9 @@
 }
 
 body {
-  margin: 0;
-  padding: 0;
+  margin: 10;
+  padding: 10;
+  width: 100%;
 }
 
 :root {
@@ -43,7 +50,7 @@ body {
   display: grid;
   grid-template-columns: auto auto auto;
   gap: 2px;
-  padding: 5px;
+  padding: 10px;
   box-shadow: var(--box-shadow);
 }
 
@@ -63,9 +70,19 @@ a:hover{
   color: var(--color-footer);
 }
 
+.textCard{
+    color: black;
+    text-align: justify;
+}
+
 .image1 {
   width: 70px;
   height: 50px;
+}
+
+img {
+    width: 80%;
+    margin: auto;
 }
 
 .item1 {
@@ -94,6 +111,15 @@ ul li {
   margin: 10px;
 }
 
+h1{
+    color: #24719F;
+}
+
+p{
+  padding: 10px;
+  text-align: justify;
+}
+
 .tittle {
   margin: auto;
   padding: 1px;
@@ -107,14 +133,23 @@ container {
   align-items: center;
 }
 
-.footer{
+.buttonPage{
+  /*padding: 8px;*/
+  display: flex;
+  color: #1080c4;
+}
+
+.textCard{
+  padding: 40px;
+}
+
+.footer {
   width: 100%;
   background-color: var(--color-footer);
   color: white;
-  padding: var(--spacing-footer);
   text-align: center;
+  font-size: 12px;
 }
-
 /* =============================================
    HEADER
    ============================================= */
