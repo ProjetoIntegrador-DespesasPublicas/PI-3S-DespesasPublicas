@@ -14,12 +14,6 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 10;
-  padding: 10;
-  width: 100%;
-}
-
 :root {
   --color-footer: #1080c4;
   --spacing-footer: 20px;
@@ -40,10 +34,10 @@ body {
   }
 }
 
-@custom-variant dark (&:where(.dark, .dark *));
-
-@theme {
-  --color-mint-500: oklch(0.72 0.11 178);
+body {
+  margin: 10;
+  padding: 10;
+  width: 100%;
 }
 
 .cardHomeContainer {
