@@ -52,7 +52,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
                 <img
                   src="imagem1.jpg"
                   alt="Imagem 2"
-                  class="rounded-lg shadow-md max-h-320px object-cover h-auto w-full"
+                  class="rounded-lg shadow-md max-h-80 object-cover"
                 />
               </div>
             </div>
@@ -126,7 +126,7 @@ export class CardHomeComponent implements OnInit, OnDestroy {
   startAutoPlay() {
     this.intervalId = setInterval(() => {
       this.next();
-    }, 5000);
+    }, 10000);
   }
 
   clearAutoPlay() {
