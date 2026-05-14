@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { FooterComponent } from '../components/footer';
 import { HeaderComponent } from '../components/header';
 import { CardHomeComponent } from '../components/cardHome';
+
 @Component({
   selector: 'app-homepage',
   standalone: true,
