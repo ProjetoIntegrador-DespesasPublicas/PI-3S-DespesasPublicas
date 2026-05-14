@@ -44,7 +44,8 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
                 </h1>
                 <p class="textCard text-gray-950 leading-relaxed text-lg">
                   Despesas públicas são o conjunto de gastos realizados pelo governo para atender as
-                  necessidades da sociedade e financiar serviços essenciais, como saúde, educação e infraestrutura.
+                  necessidades da sociedade e financiar serviços essenciais, como saúde, educação e
+                  infraestrutura.
                 </p>
               </div>
               <div class="flex items-center flex justify-center-safe">
@@ -63,7 +64,9 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
                   Você sabe o que são Empenhos?
                 </h1>
                 <p class="textCard text-gray-950 leading-relaxed text-lg">
-                  Investimentos em transporte, energia e saneamento também fazem parte...
+                  São a quantidade de dinheiro que será pago quando o bem for entregue
+                  ou o serviço concluído. Issofaz com que o orgão publico organize os gastos pelas
+                  diferentes áreas, evitando que se gaste mais do que foi planejado.
                 </p>
               </div>
               <div class="flex items-center flex justify-center-safe h-auto w-full max-w-320px">
