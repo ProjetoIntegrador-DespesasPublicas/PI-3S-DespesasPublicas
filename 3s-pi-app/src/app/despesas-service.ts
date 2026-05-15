@@ -97,7 +97,7 @@ interface CacheEntry {
 @Injectable({ providedIn: 'root' })
 export class DespesasService implements OnDestroy {
 
-  private readonly API       = 'http://localhost:8000';
+  private readonly API       = 'https://pi-3s-despesaspublicas.onrender.com';
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
   private dashboardCache = new Map<number, CacheEntry>();
