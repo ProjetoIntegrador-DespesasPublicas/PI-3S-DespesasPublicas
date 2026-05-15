@@ -344,3 +344,114 @@ container {
 /* =============================================
    FIM CARD HOME — BOAS VINDAS
    ============================================= */
+
+   /* =============================================
+   ACESSIBILIDADE
+   ============================================= */
+
+/* Barra de botões de acessibilidade no header */
+.accessibility-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Botão ativo (Libras ou Narração ligados) */
+.active-btn {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Modo escuro — botão ativo */
+.dark .active-btn {
+  outline-color: #90caf9;
+}
+
+/* Transição suave ao mudar tamanho de fonte */
+html {
+  transition: font-size 0.2s ease;
+}
+
+/* =============================================
+   ACESSIBILIDADE — MODO ESCURO GLOBAL
+   ============================================= */
+
+/* Fundo e texto geral da página */
+.dark body {
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+/* Cards gerais */
+.dark .welcome-card {
+  background-color: #1e2533;
+  color: #e0e0e0;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.4),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.dark .welcome-card-text h2 {
+  color: #90caf9;
+}
+
+.dark .welcome-card-text p {
+  color: #cbd5e0;
+}
+
+/* Links e itens de menu geral */
+.dark a {
+  color: #90caf9;
+}
+
+.dark a:hover {
+  background-color: #1a2f4a;
+  color: #90caf9;
+}
+
+/* Títulos gerais */
+.dark h1,
+.dark h2,
+.dark h3 {
+  color: #90caf9;
+}
+
+/* Parágrafos gerais */
+.dark p {
+  color: #cbd5e0;
+}
+
+/* Texto dos cards */
+.dark .textCard {
+  color: #cbd5e0;
+}
+
+.dark .titleCard {
+  color: #90caf9;
+}
+
+/* Footer */
+.dark .footer {
+  background-color: #003d72;
+  color: #e0e0e0;
+}
+
+/* Fundo geral da página inteira */
+.dark html,
+.dark body {
+  background-color: #121212;
+}
+
+/* VLibras — escondido por padrão, aparece ao clicar no botão */
+div[vw] {
+  display: none;
+}
+
+/* =============================================
+   FIM MODO ESCURO GLOBAL
+   ============================================= */
+
+/* =============================================
+   FIM ACESSIBILIDADE
+   ============================================= */
