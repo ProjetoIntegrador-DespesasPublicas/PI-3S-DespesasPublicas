@@ -20,10 +20,12 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import asyncio
+import sqlite3
 import pandas as pd
 from datetime import datetime
 from typing import Any
 import logging
+from pathlib import Path
 
 # ==============================
 # CONFIGURAÇÕES
@@ -38,7 +40,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="SOF Dashboard 2026",
     description="Dashboard orçamentário — Prefeitura de São Paulo",
-    version="3.2.0"
+    version="3.3.0"
 )
 
 app.add_middleware(
@@ -61,6 +63,252 @@ CONCURRENCY_ORGS = 6
 CACHE_TTL        = 3600
 TOP_N_CREDORES   = 10
 TOP_N_PROGRAMAS  = 10
+
+# ==============================
+# CONFIGURAÇÃO DO SQLITE
+# ==============================
+
+DB_DIR = Path(__file__).parent 
+DB_PATH = DB_DIR / "dashboard.db"
+
+
+def get_db_connection() -> sqlite3.Connection:
+    """Retorna uma conexão com o banco SQLite."""
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    """Cria as tabelas do banco caso não existam."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.executescript("""
+            CREATE TABLE IF NOT EXISTS tabela_resumo (
+                ano       INTEGER NOT NULL,
+                mes       INTEGER NOT NULL,
+                orcado    REAL    DEFAULT 0,
+                liquidado REAL    DEFAULT 0,
+                pago      REAL    DEFAULT 0,
+                PRIMARY KEY (ano, mes)
+            );
+
+            CREATE TABLE IF NOT EXISTS tabela_orgaos (
+                ano   INTEGER NOT NULL,
+                mes   INTEGER NOT NULL,
+                orgao TEXT    NOT NULL,
+                valor REAL    DEFAULT 0,
+                PRIMARY KEY (ano, mes, orgao)
+            );
+
+            CREATE TABLE IF NOT EXISTS tabela_credores (
+                ano    INTEGER NOT NULL,
+                mes    INTEGER NOT NULL,
+                credor TEXT    NOT NULL,
+                valor  REAL    DEFAULT 0,
+                PRIMARY KEY (ano, mes, credor)
+            );
+
+            CREATE TABLE IF NOT EXISTS tabela_programas (
+                ano      INTEGER NOT NULL,
+                mes      INTEGER NOT NULL,
+                programa TEXT    NOT NULL,
+                valor    REAL    DEFAULT 0,
+                PRIMARY KEY (ano, mes, programa)
+            );
+        """)
+        conn.commit()
+        logger.info(f"[SQLite] Banco inicializado em: {DB_PATH}")
+    except sqlite3.Error as e:
+        logger.error(f"[SQLite] Erro ao inicializar banco: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+# ==============================
+# FUNÇÕES DE LEITURA DO SQLITE
+# ==============================
+
+def sqlite_has_data(ano: int, mes: int) -> bool:
+    """Verifica se já existem dados no banco para o ano/mês informado."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM tabela_resumo WHERE ano = ? AND mes = ?",
+            (ano, mes)
+        )
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count > 0
+    except sqlite3.Error as e:
+        logger.warning(f"[SQLite] Erro ao verificar dados: {e}")
+        return False
+
+
+def sqlite_load_resumo(ano: int, mes: int) -> dict | None:
+    """Lê o resumo financeiro do SQLite."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT ano, mes, orcado, liquidado, pago FROM tabela_resumo WHERE ano = ? AND mes = ?",
+            (ano, mes)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return dict(row)
+        return None
+    except sqlite3.Error as e:
+        logger.error(f"[SQLite] Erro ao ler tabela_resumo: {e}")
+        return None
+
+
+def sqlite_load_orgaos(ano: int, mes: int) -> list[dict]:
+    """Lê os dados por órgão do SQLite."""
+    try:
+        conn = get_db_connection()
+        df = pd.read_sql_query(
+            "SELECT orgao, valor FROM tabela_orgaos WHERE ano = ? AND mes = ? ORDER BY valor DESC",
+            conn, params=(ano, mes)
+        )
+        conn.close()
+        return df.to_dict(orient="records")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao ler tabela_orgaos: {e}")
+        return []
+
+
+def sqlite_load_credores(ano: int, mes: int) -> list[dict]:
+    """Lê os top credores do SQLite."""
+    try:
+        conn = get_db_connection()
+        df = pd.read_sql_query(
+            "SELECT credor, valor FROM tabela_credores WHERE ano = ? AND mes = ? ORDER BY valor DESC",
+            conn, params=(ano, mes)
+        )
+        conn.close()
+        return df.to_dict(orient="records")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao ler tabela_credores: {e}")
+        return []
+
+
+def sqlite_load_programas(ano: int, mes: int) -> list[dict]:
+    """Lê os dados por programa do SQLite."""
+    try:
+        conn = get_db_connection()
+        df = pd.read_sql_query(
+            "SELECT programa, valor FROM tabela_programas WHERE ano = ? AND mes = ? ORDER BY valor DESC",
+            conn, params=(ano, mes)
+        )
+        conn.close()
+        return df.to_dict(orient="records")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao ler tabela_programas: {e}")
+        return []
+
+
+# ==============================
+# FUNÇÕES DE GRAVAÇÃO NO SQLITE
+# ==============================
+
+def sqlite_save_resumo(ano: int, mes: int, resumo: dict) -> None:
+    """Salva o resumo financeiro no SQLite."""
+    try:
+        conn = get_db_connection()
+        df = pd.DataFrame([{
+            "ano":       ano,
+            "mes":       mes,
+            "orcado":    resumo.get("orcado", 0),
+            "liquidado": resumo.get("liquidado", 0),
+            "pago":      resumo.get("pago", 0),
+        }])
+        # Remove registro anterior para o mesmo ano/mês e insere novo
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM tabela_resumo WHERE ano = ? AND mes = ?",
+            (ano, mes)
+        )
+        conn.commit()
+        df.to_sql("tabela_resumo", conn, if_exists="append", index=False)
+        conn.close()
+        logger.info(f"[SQLite] Resumo salvo para {ano}/{mes:02d}")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao salvar tabela_resumo: {e}")
+
+
+def sqlite_save_orgaos(ano: int, mes: int, orgaos: list[dict]) -> None:
+    """Salva os dados por órgão no SQLite."""
+    if not orgaos:
+        return
+    try:
+        conn = get_db_connection()
+        df = pd.DataFrame([
+            {"ano": ano, "mes": mes, "orgao": o.get("orgao", ""), "valor": o.get("valor", 0)}
+            for o in orgaos
+        ])
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM tabela_orgaos WHERE ano = ? AND mes = ?",
+            (ano, mes)
+        )
+        conn.commit()
+        df.to_sql("tabela_orgaos", conn, if_exists="append", index=False)
+        conn.close()
+        logger.info(f"[SQLite] {len(orgaos)} órgãos salvos para {ano}/{mes:02d}")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao salvar tabela_orgaos: {e}")
+
+
+def sqlite_save_credores(ano: int, mes: int, credores: list[dict]) -> None:
+    """Salva os top credores no SQLite."""
+    if not credores:
+        return
+    try:
+        conn = get_db_connection()
+        df = pd.DataFrame([
+            {"ano": ano, "mes": mes, "credor": c.get("credor", ""), "valor": c.get("valor", 0)}
+            for c in credores
+        ])
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM tabela_credores WHERE ano = ? AND mes = ?",
+            (ano, mes)
+        )
+        conn.commit()
+        df.to_sql("tabela_credores", conn, if_exists="append", index=False)
+        conn.close()
+        logger.info(f"[SQLite] {len(credores)} credores salvos para {ano}/{mes:02d}")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao salvar tabela_credores: {e}")
+
+
+def sqlite_save_programas(ano: int, mes: int, programas: list[dict]) -> None:
+    """Salva os dados por programa no SQLite."""
+    if not programas:
+        return
+    try:
+        conn = get_db_connection()
+        df = pd.DataFrame([
+            {"ano": ano, "mes": mes, "programa": p.get("programa", ""), "valor": p.get("valor", 0)}
+            for p in programas
+        ])
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM tabela_programas WHERE ano = ? AND mes = ?",
+            (ano, mes)
+        )
+        conn.commit()
+        df.to_sql("tabela_programas", conn, if_exists="append", index=False)
+        conn.close()
+        logger.info(f"[SQLite] {len(programas)} programas salvos para {ano}/{mes:02d}")
+    except Exception as e:
+        logger.error(f"[SQLite] Erro ao salvar tabela_programas: {e}")
 
 
 # ==============================
@@ -159,7 +407,9 @@ def get_client() -> httpx.AsyncClient:
 @app.on_event("startup")
 async def startup():
     get_client()
+    init_db()
     logger.info("HTTP client iniciado.")
+    logger.info(f"[SQLite] Banco de dados em: {DB_PATH}")
 
 
 @app.on_event("shutdown")
@@ -406,7 +656,7 @@ async def get_top_credores(ano: int, mes: int) -> list[dict]:
     raw = await get_cached(
         "despesasCredor",
         {"anoExercicio": ano, "mesEmpenho": mes},
-        "lstDespesaCredores",   # ← era "lstCredores", nome errado
+        "lstDespesaCredores",
         max_pages=10,
     )
     if not raw:
@@ -437,60 +687,18 @@ async def get_top_credores(ano: int, mes: int) -> list[dict]:
     logger.info(f"[CREDORES] {len(result)} credores retornados")
     return result.to_dict(orient="records")
 
+
 # ==============================
-# ENDPOINTS
+# DASHBOARD COM CACHE SQLITE
 # ==============================
 
-@app.get("/", tags=["Status"])
-async def home():
-    return {
-        "status":         "ok",
-        "versao":         "3.2.0",
-        "ano":            ANO_FIXO,
-        "mes_disponivel": get_mes_disponivel(),
-    }
+async def build_dashboard_from_api(ano: int, mes: int) -> dict:
+    """
+    Consome a API da SOF, processa os dados e persiste no SQLite.
+    Retorna o payload completo do dashboard.
+    """
+    logger.info(f"[FONTE: API SOF] Buscando dados para {ano}/{mes:02d} ...")
 
-
-@app.get("/meses-disponiveis", tags=["Filtro"])
-async def meses_disponiveis():
-    return {
-        "ano":        ANO_FIXO,
-        "mes_padrao": get_mes_disponivel(),
-        "meses":      get_meses_disponiveis(),
-    }
-
-
-@app.get("/cache/stats", tags=["Admin"])
-async def cache_stats():
-    return await cache.stats()
-
-
-@app.get("/cache/clear", tags=["Admin"])
-async def limpar_cache():
-    await cache.clear()
-    return {"message": "Cache limpo."}
-
-
-# ──────────────────────────────────────────────────
-# DASHBOARD UNIFICADO
-# ──────────────────────────────────────────────────
-
-@app.get("/despesas/dashboard", tags=["Dashboard"])
-async def get_dashboard(
-    mes: int = Query(
-        default=None, ge=1, le=12,
-        description="Mês de 2026 (padrão: último mês fechado)"
-    )
-):
-    if mes is None:
-        mes = get_mes_disponivel()
-    else:
-        mes = validar_mes(mes)
-
-    ano = ANO_FIXO
-    logger.info(f"[DASHBOARD] {ano}/{mes:02d}")
-
-    # Todas as buscas em paralelo
     resumo_fut   = get_cached("despesas",
                               {"anoDotacao": ano, "mesDotacao": mes},
                               "lstDespesas", max_pages=5)
@@ -525,13 +733,24 @@ async def get_dashboard(
         "pago":      safe_sum(df_dot, "valPagoExercicio"),
     }
 
+    # Persiste no SQLite em background (não bloqueia a resposta)
+    try:
+        sqlite_save_resumo(ano, mes, resumo)
+        sqlite_save_orgaos(ano, mes, por_orgao)
+        sqlite_save_credores(ano, mes, top_credores)
+        sqlite_save_programas(ano, mes, por_programa)
+        logger.info(f"[SQLite] Dados de {ano}/{mes:02d} persistidos com sucesso.")
+    except Exception as e:
+        logger.error(f"[SQLite] Falha ao persistir dados: {e}")
+
     return {
         "meta": {
-            "ano":                 ano,
-            "mes":                 mes,
-            "registros_dotacoes":  len(resumo_raw),
-            "orgaos_retornados":   len(por_orgao),
-            "credores_retornados": len(top_credores),
+            "ano":                  ano,
+            "mes":                  mes,
+            "fonte":                "api",
+            "registros_dotacoes":   len(resumo_raw),
+            "orgaos_retornados":    len(por_orgao),
+            "credores_retornados":  len(top_credores),
             "programas_retornados": len(por_programa),
         },
         "resumo":      resumo,
@@ -541,8 +760,127 @@ async def get_dashboard(
     }
 
 
+def build_dashboard_from_sqlite(ano: int, mes: int) -> dict:
+    """
+    Monta o payload do dashboard lendo exclusivamente do SQLite.
+    """
+    logger.info(f"[FONTE: SQLite] Carregando dados para {ano}/{mes:02d} ...")
+
+    resumo_row   = sqlite_load_resumo(ano, mes)
+    por_orgao    = sqlite_load_orgaos(ano, mes)
+    top_credores = sqlite_load_credores(ano, mes)
+    por_programa = sqlite_load_programas(ano, mes)
+
+    resumo = resumo_row if resumo_row else {
+        "ano": ano, "mes": mes, "orcado": 0, "liquidado": 0, "pago": 0
+    }
+
+    return {
+        "meta": {
+            "ano":                  ano,
+            "mes":                  mes,
+            "fonte":                "sqlite",
+            "registros_dotacoes":   None,
+            "orgaos_retornados":    len(por_orgao),
+            "credores_retornados":  len(top_credores),
+            "programas_retornados": len(por_programa),
+        },
+        "resumo":      resumo,
+        "porOrgao":    por_orgao,
+        "topCredores": top_credores,
+        "topProgramas": por_programa,
+    }
+
+
+# ==============================
+# ENDPOINTS
+# ==============================
+
+@app.get("/", tags=["Status"])
+async def home():
+    return {
+        "status":         "ok",
+        "versao":         "3.3.0",
+        "ano":            ANO_FIXO,
+        "mes_disponivel": get_mes_disponivel(),
+    }
+
+
+@app.get("/meses-disponiveis", tags=["Filtro"])
+async def meses_disponiveis():
+    return {
+        "ano":        ANO_FIXO,
+        "mes_padrao": get_mes_disponivel(),
+        "meses":      get_meses_disponiveis(),
+    }
+
+
+@app.get("/cache/stats", tags=["Admin"])
+async def cache_stats():
+    return await cache.stats()
+
+
+@app.get("/cache/clear", tags=["Admin"])
+async def limpar_cache():
+    await cache.clear()
+    return {"message": "Cache em memória limpo."}
+
+
+@app.get("/cache/sqlite/clear", tags=["Admin"])
+async def limpar_cache_sqlite(
+    mes: int = Query(default=None, ge=1, le=12,
+                     description="Mês a remover do SQLite (omita para limpar tudo)")
+):
+    """Remove registros do SQLite para forçar nova consulta à API."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if mes:
+            for tabela in ("tabela_resumo", "tabela_orgaos", "tabela_credores", "tabela_programas"):
+                cursor.execute(f"DELETE FROM {tabela} WHERE ano = ? AND mes = ?", (ANO_FIXO, mes))
+            msg = f"Cache SQLite limpo para {ANO_FIXO}/{mes:02d}."
+        else:
+            for tabela in ("tabela_resumo", "tabela_orgaos", "tabela_credores", "tabela_programas"):
+                cursor.execute(f"DELETE FROM {tabela}")
+            msg = "Cache SQLite completamente limpo."
+        conn.commit()
+        conn.close()
+        logger.info(f"[SQLite] {msg}")
+        return {"message": msg}
+    except sqlite3.Error as e:
+        logger.error(f"[SQLite] Erro ao limpar cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao limpar SQLite: {e}")
+
+
 # ──────────────────────────────────────────────────
-# ENDPOINTS INDIVIDUAIS
+# DASHBOARD UNIFICADO (com cache SQLite)
+# ──────────────────────────────────────────────────
+
+@app.get("/despesas/dashboard", tags=["Dashboard"])
+async def get_dashboard(
+    mes: int = Query(
+        default=None, ge=1, le=12,
+        description="Mês de 2026 (padrão: último mês fechado)"
+    )
+):
+    if mes is None:
+        mes = get_mes_disponivel()
+    else:
+        mes = validar_mes(mes)
+
+    ano = ANO_FIXO
+    logger.info(f"[DASHBOARD] {ano}/{mes:02d}")
+
+    # Verifica se o SQLite já tem dados para este mês
+    if sqlite_has_data(ano, mes):
+        return build_dashboard_from_sqlite(ano, mes)
+
+    # Primeira requisição: busca na API e persiste no SQLite
+    return await build_dashboard_from_api(ano, mes)
+
+
+# ──────────────────────────────────────────────────
+# ENDPOINTS INDIVIDUAIS (com cache SQLite)
 # ──────────────────────────────────────────────────
 
 @app.get("/despesas/resumo", tags=["Despesas"])
@@ -551,17 +889,32 @@ async def resumo_despesas(mes: int = Query(default=None, ge=1, le=12)):
         mes = get_mes_disponivel()
     else:
         mes = validar_mes(mes)
+
+    ano = ANO_FIXO
+
+    # Tenta SQLite primeiro
+    if sqlite_has_data(ano, mes):
+        logger.info(f"[FONTE: SQLite] Resumo para {ano}/{mes:02d}")
+        row = sqlite_load_resumo(ano, mes)
+        if row:
+            return row
+
+    # Fallback: API
+    logger.info(f"[FONTE: API SOF] Resumo para {ano}/{mes:02d}")
     raw = await get_cached("despesas",
-                           {"anoDotacao": ANO_FIXO, "mesDotacao": mes},
+                           {"anoDotacao": ano, "mesDotacao": mes},
                            "lstDespesas", max_pages=5)
     df = to_df(raw)
-    return {
-        "ano":       ANO_FIXO, "mes": mes,
+    resumo = {
+        "ano":       ano,
+        "mes":       mes,
         "orcado":    safe_sum(df, "valOrcadoAtualizado"),
         "empenhado": safe_sum(df, "valEmpenhado"),
         "liquidado": safe_sum(df, "valLiquidado"),
         "pago":      safe_sum(df, "valPagoExercicio"),
     }
+    sqlite_save_resumo(ano, mes, resumo)
+    return resumo
 
 
 @app.get("/despesas/por-orgao", tags=["Despesas"])
@@ -570,7 +923,17 @@ async def despesas_por_orgao(mes: int = Query(default=None, ge=1, le=12)):
         mes = get_mes_disponivel()
     else:
         mes = validar_mes(mes)
-    return await get_despesas_por_orgao(ANO_FIXO, mes)
+
+    ano = ANO_FIXO
+
+    if sqlite_has_data(ano, mes):
+        logger.info(f"[FONTE: SQLite] Órgãos para {ano}/{mes:02d}")
+        return sqlite_load_orgaos(ano, mes)
+
+    logger.info(f"[FONTE: API SOF] Órgãos para {ano}/{mes:02d}")
+    result = await get_despesas_por_orgao(ano, mes)
+    sqlite_save_orgaos(ano, mes, result)
+    return result
 
 
 @app.get("/despesas/top-credores", tags=["Despesas"])
@@ -579,7 +942,17 @@ async def top_credores_endpoint(mes: int = Query(default=None, ge=1, le=12)):
         mes = get_mes_disponivel()
     else:
         mes = validar_mes(mes)
-    return await get_top_credores(ANO_FIXO, mes)
+
+    ano = ANO_FIXO
+
+    if sqlite_has_data(ano, mes):
+        logger.info(f"[FONTE: SQLite] Credores para {ano}/{mes:02d}")
+        return sqlite_load_credores(ano, mes)
+
+    logger.info(f"[FONTE: API SOF] Credores para {ano}/{mes:02d}")
+    result = await get_top_credores(ano, mes)
+    sqlite_save_credores(ano, mes, result)
+    return result
 
 
 @app.get("/despesas/por-programa", tags=["Despesas"])
@@ -588,4 +961,14 @@ async def despesas_por_programa(mes: int = Query(default=None, ge=1, le=12)):
         mes = get_mes_disponivel()
     else:
         mes = validar_mes(mes)
-    return await get_despesas_por_programa(ANO_FIXO, mes)
+
+    ano = ANO_FIXO
+
+    if sqlite_has_data(ano, mes):
+        logger.info(f"[FONTE: SQLite] Programas para {ano}/{mes:02d}")
+        return sqlite_load_programas(ano, mes)
+
+    logger.info(f"[FONTE: API SOF] Programas para {ano}/{mes:02d}")
+    result = await get_despesas_por_programa(ano, mes)
+    sqlite_save_programas(ano, mes, result)
+    return result

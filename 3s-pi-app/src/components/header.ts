@@ -1,20 +1,41 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'header-comp',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   template: `
     <header class="header-bar">
 
       <span class="header-title">Portal de Transparência Pública</span>
 
       <nav class="header-nav">
-        <a href="#" class="nav-item nav-active">Início</a>
-        <a href="despesas" class="nav-item">Consultar Despesas</a>
-        <a href="#" class="nav-item">Consultar Empenhos</a>
-        <a href="#" class="nav-item">Favoritos</a>
+        <a
+            routerLink="/"
+            routerLinkActive="nav-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="nav-item"
+          >
+          Início
+        </a>
+
+        <a
+          routerLink="/despesas"
+          routerLinkActive="nav-active"
+          class="nav-item"
+        >
+          Consultar Despesas
+        </a>
+
+        <!-- <a
+          routerLink="/empenhos"
+          routerLinkActive="nav-active"
+          class="nav-item"
+        >
+          Consultar Empenhos
+        </a> -->
       </nav>
 
       <!-- Barra de acessibilidade -->
