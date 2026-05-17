@@ -3,5 +3,4 @@ uvicorn
 httpx
 pandas
 numpy
-sqlite3
 pathlib
