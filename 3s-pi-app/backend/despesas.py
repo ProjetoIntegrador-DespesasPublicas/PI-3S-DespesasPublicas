@@ -63,12 +63,13 @@ CONCURRENCY_ORGS = 6
 CACHE_TTL        = 3600
 TOP_N_CREDORES   = 10
 TOP_N_PROGRAMAS  = 10
+MIN_ROWS_CACHE   = 4   # mínimo de linhas por tabela para considerar cache válido
 
 # ==============================
 # CONFIGURAÇÃO DO SQLITE
 # ==============================
 
-DB_DIR = Path(__file__).parent 
+DB_DIR  = Path(__file__).parent
 DB_PATH = DB_DIR / "dashboard.db"
 
 
@@ -133,19 +134,44 @@ def init_db() -> None:
 # ==============================
 
 def sqlite_has_data(ano: int, mes: int) -> bool:
-    """Verifica se já existem dados no banco para o ano/mês informado."""
+    """
+    Validação de qualidade: verifica se TODAS as 4 tabelas possuem
+    linhas suficientes para o ano/mês informado.
+    - tabela_resumo:    mínimo 1 linha  (é um registro agregado)
+    - tabela_orgaos:    mínimo MIN_ROWS_CACHE linhas
+    - tabela_credores:  mínimo MIN_ROWS_CACHE linhas
+    - tabela_programas: mínimo MIN_ROWS_CACHE linhas
+    Se qualquer tabela estiver vazia ou insuficiente, retorna False
+    e força nova busca na API da SOF.
+    """
+    verificacoes = [
+        ("tabela_resumo",    1),
+        ("tabela_orgaos",    MIN_ROWS_CACHE),
+        ("tabela_credores",  MIN_ROWS_CACHE),
+        ("tabela_programas", MIN_ROWS_CACHE),
+    ]
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) FROM tabela_resumo WHERE ano = ? AND mes = ?",
-            (ano, mes)
-        )
-        count = cursor.fetchone()[0]
+        for tabela, minimo in verificacoes:
+            cursor.execute(
+                f"SELECT COUNT(*) FROM {tabela} WHERE ano = ? AND mes = ?",
+                (ano, mes)
+            )
+            count = cursor.fetchone()[0]
+            if count < minimo:
+                conn.close()
+                logger.warning(
+                    f"[SQLite] Qualidade insuficiente — '{tabela}': "
+                    f"{count} linha(s) (mínimo: {minimo}) para {ano}/{mes:02d}. "
+                    f"Forçando busca na API da SOF."
+                )
+                return False
         conn.close()
-        return count > 0
+        logger.info(f"[SQLite] Cache válido para {ano}/{mes:02d} — todas as tabelas OK.")
+        return True
     except sqlite3.Error as e:
-        logger.warning(f"[SQLite] Erro ao verificar dados: {e}")
+        logger.warning(f"[SQLite] Erro ao validar qualidade do cache: {e}")
         return False
 
 
@@ -218,95 +244,153 @@ def sqlite_load_programas(ano: int, mes: int) -> list[dict]:
 # ==============================
 
 def sqlite_save_resumo(ano: int, mes: int, resumo: dict) -> None:
-    """Salva o resumo financeiro no SQLite."""
+    """Salva o resumo financeiro no SQLite usando transação atômica."""
     try:
-        conn = get_db_connection()
         df = pd.DataFrame([{
             "ano":       ano,
             "mes":       mes,
-            "orcado":    resumo.get("orcado", 0),
-            "liquidado": resumo.get("liquidado", 0),
-            "pago":      resumo.get("pago", 0),
+            "orcado":    float(resumo.get("orcado")    or 0),
+            "liquidado": float(resumo.get("liquidado") or 0),
+            "pago":      float(resumo.get("pago")      or 0),
         }])
-        # Remove registro anterior para o mesmo ano/mês e insere novo
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM tabela_resumo WHERE ano = ? AND mes = ?",
-            (ano, mes)
-        )
-        conn.commit()
-        df.to_sql("tabela_resumo", conn, if_exists="append", index=False)
+        conn = get_db_connection()
+        with conn:   # transação atômica: DELETE + INSERT
+            conn.execute(
+                "DELETE FROM tabela_resumo WHERE ano = ? AND mes = ?",
+                (ano, mes)
+            )
+            df.to_sql("tabela_resumo", conn, if_exists="append", index=False)
         conn.close()
-        logger.info(f"[SQLite] Resumo salvo para {ano}/{mes:02d}")
+        logger.info(f"[SQLite] Resumo salvo para {ano}/{mes:02d}.")
     except Exception as e:
         logger.error(f"[SQLite] Erro ao salvar tabela_resumo: {e}")
 
 
 def sqlite_save_orgaos(ano: int, mes: int, orgaos: list[dict]) -> None:
-    """Salva os dados por órgão no SQLite."""
+    """
+    Salva os dados por órgão no SQLite.
+    - Filtra entradas com nome vazio/None ou valor zero (evita violação de PK).
+    - Usa transação única: DELETE + INSERT atomicamente.
+    - Deduplica por nome de órgão antes de inserir.
+    """
     if not orgaos:
+        logger.warning(f"[SQLite] Nenhum órgão para salvar em {ano}/{mes:02d}.")
         return
     try:
-        conn = get_db_connection()
+        # Sanitiza e deduplica
+        rows = {}
+        for o in orgaos:
+            nome  = str(o.get("orgao") or "").strip()
+            valor = float(o.get("valor") or 0)
+            if not nome or valor <= 0:
+                continue
+            # mantém o maior valor em caso de nome duplicado
+            if nome not in rows or valor > rows[nome]:
+                rows[nome] = valor
+
+        if not rows:
+            logger.warning(f"[SQLite] Todos os órgãos foram filtrados (nomes vazios/valor=0) para {ano}/{mes:02d}.")
+            return
+
         df = pd.DataFrame([
-            {"ano": ano, "mes": mes, "orgao": o.get("orgao", ""), "valor": o.get("valor", 0)}
-            for o in orgaos
+            {"ano": ano, "mes": mes, "orgao": nome, "valor": valor}
+            for nome, valor in rows.items()
         ])
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM tabela_orgaos WHERE ano = ? AND mes = ?",
-            (ano, mes)
-        )
-        conn.commit()
-        df.to_sql("tabela_orgaos", conn, if_exists="append", index=False)
+
+        conn = get_db_connection()
+        with conn:   # transação: commit automático ou rollback em erro
+            conn.execute(
+                "DELETE FROM tabela_orgaos WHERE ano = ? AND mes = ?",
+                (ano, mes)
+            )
+            df.to_sql("tabela_orgaos", conn, if_exists="append", index=False)
         conn.close()
-        logger.info(f"[SQLite] {len(orgaos)} órgãos salvos para {ano}/{mes:02d}")
+        logger.info(f"[SQLite] {len(rows)} órgãos salvos para {ano}/{mes:02d}.")
     except Exception as e:
         logger.error(f"[SQLite] Erro ao salvar tabela_orgaos: {e}")
 
 
 def sqlite_save_credores(ano: int, mes: int, credores: list[dict]) -> None:
-    """Salva os top credores no SQLite."""
+    """
+    Salva os top credores no SQLite.
+    - Filtra entradas com nome vazio/None ou valor zero (evita violação de PK).
+    - Usa transação única: DELETE + INSERT atomicamente.
+    - Deduplica por nome de credor antes de inserir.
+    """
     if not credores:
+        logger.warning(f"[SQLite] Nenhum credor para salvar em {ano}/{mes:02d}.")
         return
     try:
-        conn = get_db_connection()
+        # Sanitiza e deduplica
+        rows = {}
+        for c in credores:
+            nome  = str(c.get("credor") or "").strip()
+            valor = float(c.get("valor") or 0)
+            if not nome or valor <= 0:
+                continue
+            if nome not in rows or valor > rows[nome]:
+                rows[nome] = valor
+
+        if not rows:
+            logger.warning(f"[SQLite] Todos os credores foram filtrados (nomes vazios/valor=0) para {ano}/{mes:02d}.")
+            return
+
         df = pd.DataFrame([
-            {"ano": ano, "mes": mes, "credor": c.get("credor", ""), "valor": c.get("valor", 0)}
-            for c in credores
+            {"ano": ano, "mes": mes, "credor": nome, "valor": valor}
+            for nome, valor in rows.items()
         ])
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM tabela_credores WHERE ano = ? AND mes = ?",
-            (ano, mes)
-        )
-        conn.commit()
-        df.to_sql("tabela_credores", conn, if_exists="append", index=False)
+
+        conn = get_db_connection()
+        with conn:   # transação atômica
+            conn.execute(
+                "DELETE FROM tabela_credores WHERE ano = ? AND mes = ?",
+                (ano, mes)
+            )
+            df.to_sql("tabela_credores", conn, if_exists="append", index=False)
         conn.close()
-        logger.info(f"[SQLite] {len(credores)} credores salvos para {ano}/{mes:02d}")
+        logger.info(f"[SQLite] {len(rows)} credores salvos para {ano}/{mes:02d}.")
     except Exception as e:
         logger.error(f"[SQLite] Erro ao salvar tabela_credores: {e}")
 
 
 def sqlite_save_programas(ano: int, mes: int, programas: list[dict]) -> None:
-    """Salva os dados por programa no SQLite."""
+    """
+    Salva os dados por programa no SQLite.
+    - Filtra entradas com nome vazio/None ou valor zero.
+    - Usa transação atômica: DELETE + INSERT.
+    - Deduplica por nome de programa antes de inserir.
+    """
     if not programas:
+        logger.warning(f"[SQLite] Nenhum programa para salvar em {ano}/{mes:02d}.")
         return
     try:
-        conn = get_db_connection()
+        rows = {}
+        for p in programas:
+            nome  = str(p.get("programa") or "").strip()
+            valor = float(p.get("valor") or 0)
+            if not nome or valor <= 0:
+                continue
+            if nome not in rows or valor > rows[nome]:
+                rows[nome] = valor
+
+        if not rows:
+            logger.warning(f"[SQLite] Todos os programas foram filtrados para {ano}/{mes:02d}.")
+            return
+
         df = pd.DataFrame([
-            {"ano": ano, "mes": mes, "programa": p.get("programa", ""), "valor": p.get("valor", 0)}
-            for p in programas
+            {"ano": ano, "mes": mes, "programa": nome, "valor": valor}
+            for nome, valor in rows.items()
         ])
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM tabela_programas WHERE ano = ? AND mes = ?",
-            (ano, mes)
-        )
-        conn.commit()
-        df.to_sql("tabela_programas", conn, if_exists="append", index=False)
+
+        conn = get_db_connection()
+        with conn:
+            conn.execute(
+                "DELETE FROM tabela_programas WHERE ano = ? AND mes = ?",
+                (ano, mes)
+            )
+            df.to_sql("tabela_programas", conn, if_exists="append", index=False)
         conn.close()
-        logger.info(f"[SQLite] {len(programas)} programas salvos para {ano}/{mes:02d}")
+        logger.info(f"[SQLite] {len(rows)} programas salvos para {ano}/{mes:02d}.")
     except Exception as e:
         logger.error(f"[SQLite] Erro ao salvar tabela_programas: {e}")
 
@@ -733,7 +817,11 @@ async def build_dashboard_from_api(ano: int, mes: int) -> dict:
         "pago":      safe_sum(df_dot, "valPagoExercicio"),
     }
 
-    # Persiste no SQLite em background (não bloqueia a resposta)
+    # Persiste no SQLite — log de diagnóstico antes de salvar
+    logger.info(
+        f"[SQLite] Salvando → resumo: 1 reg | órgãos: {len(por_orgao)} | "
+        f"credores: {len(top_credores)} | programas: {len(por_programa)}"
+    )
     try:
         sqlite_save_resumo(ano, mes, resumo)
         sqlite_save_orgaos(ano, mes, por_orgao)
@@ -834,22 +922,58 @@ async def limpar_cache_sqlite(
     """Remove registros do SQLite para forçar nova consulta à API."""
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        if mes:
-            for tabela in ("tabela_resumo", "tabela_orgaos", "tabela_credores", "tabela_programas"):
-                cursor.execute(f"DELETE FROM {tabela} WHERE ano = ? AND mes = ?", (ANO_FIXO, mes))
-            msg = f"Cache SQLite limpo para {ANO_FIXO}/{mes:02d}."
-        else:
-            for tabela in ("tabela_resumo", "tabela_orgaos", "tabela_credores", "tabela_programas"):
-                cursor.execute(f"DELETE FROM {tabela}")
-            msg = "Cache SQLite completamente limpo."
-        conn.commit()
+        tabelas = ("tabela_resumo", "tabela_orgaos", "tabela_credores", "tabela_programas")
+        with conn:
+            if mes:
+                for tabela in tabelas:
+                    conn.execute(f"DELETE FROM {tabela} WHERE ano = ? AND mes = ?", (ANO_FIXO, mes))
+                msg = f"Cache SQLite limpo para {ANO_FIXO}/{mes:02d}."
+            else:
+                for tabela in tabelas:
+                    conn.execute(f"DELETE FROM {tabela}")
+                msg = "Cache SQLite completamente limpo."
         conn.close()
         logger.info(f"[SQLite] {msg}")
         return {"message": msg}
     except sqlite3.Error as e:
         logger.error(f"[SQLite] Erro ao limpar cache: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao limpar SQLite: {e}")
+
+
+@app.get("/cache/sqlite/status", tags=["Admin"])
+async def status_cache_sqlite():
+    """
+    Diagnóstico do banco SQLite: exibe quantas linhas existem
+    em cada tabela para cada mês disponível.
+    Também informa se o cache de cada mês é válido (≥ MIN_ROWS_CACHE linhas).
+    """
+    tabelas = ("tabela_resumo", "tabela_orgaos", "tabela_credores", "tabela_programas")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        resultado = {}
+        for mes in range(1, get_mes_disponivel() + 1):
+            info = {"valido": True, "tabelas": {}}
+            for tabela in tabelas:
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM {tabela} WHERE ano = ? AND mes = ?",
+                    (ANO_FIXO, mes)
+                )
+                count = cursor.fetchone()[0]
+                minimo = 1 if tabela == "tabela_resumo" else MIN_ROWS_CACHE
+                ok = count >= minimo
+                info["tabelas"][tabela] = {"linhas": count, "minimo": minimo, "ok": ok}
+                if not ok:
+                    info["valido"] = False
+            resultado[f"{ANO_FIXO}/{mes:02d}"] = info
+        conn.close()
+        return {
+            "banco":      str(DB_PATH),
+            "min_linhas": MIN_ROWS_CACHE,
+            "meses":      resultado,
+        }
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao consultar SQLite: {e}")
 
 
 # ──────────────────────────────────────────────────
