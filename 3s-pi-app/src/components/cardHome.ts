@@ -17,7 +17,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
             <!-- Card 1 -->
             <div class="min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
               <div class="flex flex-col justify-center">
-                <h1 class="text-2xl font-bold text-gray-800 mb-4 text-lg text-center">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4 text-xl text-center">
                   Bem vindo ao Portal de Transparencia Publica
                 </h1>
                 <p class=" textCard text-gray-950 leading-relaxed text-lg ">
@@ -39,7 +39,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
             <!-- Card 2 -->
             <div class="min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
               <div class="flex flex-col justify-center">
-                <h1 class="text-2xl font-bold text-gray-800 mb-4 text-lg text-center">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4 text-xl text-center">
                   Você sabe o que são despesas publicas?
                 </h1>
                 <p class="textCard text-gray-950 leading-relaxed text-lg">
@@ -60,7 +60,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
             <!-- Card 3 -->
             <div class="min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
               <div class="flex flex-col justify-center">
-                <h1 class="text-2xl font-bold text-gray-800 mb-4 text-lg text-center">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4 text-xl text-center">
                   Você sabe o que são Empenhos?
                 </h1>
                 <p class="textCard text-gray-950 leading-relaxed text-lg">
@@ -84,13 +84,13 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
         <div class="buttonPage absolute inset-0 flex items-center justify-between ">
           <button
             (click)="prev()"
-            class="bg-gray-800 text-white p-2 rounded-full hover:bg-gray-600"
+            class="text-white p-2 rounded-full bg-white"
           >
-            <a class="color: text-blue-400 bg-transparent"><</a>
+            <a class="color: text-blue-400 bg-white"><</a>
           </button>
           <button
             (click)="next()"
-            class="bg-gray-800 text-white p-2 rounded-full hover:bg-gray-600"
+            class="text-white p-2 rounded-full bg-transparent"
           >
             <a class="text-blue-400">></a>
           </button>

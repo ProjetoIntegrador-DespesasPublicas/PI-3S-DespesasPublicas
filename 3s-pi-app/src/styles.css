@@ -55,9 +55,8 @@ body {
 }
 
 a:hover{
-  background-color: #D5DEE3;
   text-decoration: none;
-  color: var(--color-footer);
+  color: #003d72;
 }
 
 .titleCard{
@@ -107,11 +106,11 @@ ul li {
 
 h1{
     color: #24719F;
+    font-size: larger;
 }
 
 p{
   padding: 10px;
-  text-align: justify;
 }
 
 .tittle {
@@ -129,8 +128,11 @@ container {
 
 .buttonPage{
   /*padding: 8px;*/
+  font-size: 45px;
   display: flex;
   color: #1080c4;
+  color: transparent;
+  font-weight: bold;
 }
 
 .textCard{
@@ -144,6 +146,7 @@ container {
   text-align: center;
   font-size: 12px;
 }
+
 /* =============================================
    HEADER
    ============================================= */
