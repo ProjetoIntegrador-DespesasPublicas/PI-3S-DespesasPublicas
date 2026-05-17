@@ -26,12 +26,12 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
                 </p>
               </div>
               <div
-                class="flex items-center flex justify-center-safe p-px24 h-auto w-full max-w-320px"
+                class=" items-center flex justify-center-safe p-px30 h-auto w-full max-w-320px"
               >
                 <img
                   src="img0.png"
                   alt="Imagem 1"
-                  class="rounded-lg shadow-md max-h-100 object-cover"
+                  class="rounded-lg shadow-md max-h-80 object-cover"
                 />
               </div>
             </div>
@@ -48,7 +48,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
                   infraestrutura.
                 </p>
               </div>
-              <div class="flex items-center flex justify-center-safe">
+              <div class=" items-center flex justify-center-safe">
                 <img
                   src="imagem1.jpg"
                   alt="Imagem 2"
