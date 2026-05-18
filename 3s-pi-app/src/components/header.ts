@@ -36,6 +36,14 @@ import { RouterModule } from '@angular/router';
         >
           Consultar Empenhos
         </a> -->
+
+        <a
+          routerLink="/dashboard"
+          routerLinkActive="nav-active"
+          class="nav-item"
+  >
+    Demonstrativos
+         </a>
       </nav>
 
       <!-- Barra de acessibilidade -->
