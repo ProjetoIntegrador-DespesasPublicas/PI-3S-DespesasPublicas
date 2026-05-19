@@ -389,7 +389,7 @@ html {
 
 /* Fundo e texto geral da página */
 .dark body {
-  background-color: #121212;
+  background-color: #03011f;
   color: #e0e0e0;
 }
 
@@ -410,9 +410,19 @@ html {
   color: #cbd5e0;
 }
 
+.dark .cardHome {
+  color: #cbd5e0;
+  background-color: #1e2533;
+}
+
 /* Links e itens de menu geral */
 .dark a {
   color: #90caf9;
+  background-color: #1e2533;
+}
+
+.dark .btnPage {
+  background-color: #1e2533;
 }
 
 .dark a:hover {
@@ -435,6 +445,7 @@ html {
 /* Texto dos cards */
 .dark .textCard {
   color: #cbd5e0;
+  background-color: #1e2533;
 }
 
 .dark .titleCard {

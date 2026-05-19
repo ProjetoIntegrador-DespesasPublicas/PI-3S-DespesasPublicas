@@ -7,7 +7,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
   imports: [CommonModule],
   template: `
     <div class="min-h-[95vh] flex items-center justify-center bg-gray-150 p-20">
-      <div class="relative w-full max-w-8xl">
+      <div class=" cardHome relative w-full max-w-8xl">
         <!-- Slides -->
         <div class="overflow-hidden rounded-lg shadow-lg">
           <div
@@ -15,7 +15,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
             [style.transform]="'translateX(-' + currentIndex * 100 + '%)'"
           >
             <!-- Card 1 -->
-            <div class="min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
+            <div class=" cardHome min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
               <div class="flex flex-col justify-center">
                 <h1 class="text-2xl font-bold text-gray-800 mb-4 text-xl text-center">
                   Bem vindo ao Portal de Transparencia Publica
@@ -37,7 +37,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
             </div>
 
             <!-- Card 2 -->
-            <div class="min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
+            <div class="cardHome min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
               <div class="flex flex-col justify-center">
                 <h1 class="text-2xl font-bold text-gray-800 mb-4 text-xl text-center">
                   Você sabe o que são despesas publicas?
@@ -58,7 +58,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
             </div>
 
             <!-- Card 3 -->
-            <div class="min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
+            <div class="cardHome min-w-full grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6">
               <div class="flex flex-col justify-center">
                 <h1 class="text-2xl font-bold text-gray-800 mb-4 text-xl text-center">
                   Você sabe o que são Empenhos?
@@ -84,13 +84,13 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
         <div class="buttonPage absolute inset-0 flex items-center justify-between ">
           <button
             (click)="prev()"
-            class="text-white p-2 rounded-full bg-white"
+            class="btnPage text-white p-2 rounded-full bg-white"
           >
             <a class="color: text-blue-400 bg-white"><</a>
           </button>
           <button
             (click)="next()"
-            class="text-white p-2 rounded-full bg-transparent"
+            class="btnPage text-white p-2 rounded-full bg-transparent"
           >
             <a class="text-blue-400">></a>
           </button>
