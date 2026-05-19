@@ -31,7 +31,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
                 <img
                   src="img0.png"
                   alt="Imagem 1"
-                  class="rounded-lg shadow-md max-h-80 object-cover"
+                  class="img1 rounded-lg shadow-md max-h-80 object-cover"
                 />
               </div>
             </div>

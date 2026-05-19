@@ -37,5 +37,3 @@ import { CardHomeComponent } from '../components/cardHome';
   `]
 })
 export class HomepageComponent {}
-
-
