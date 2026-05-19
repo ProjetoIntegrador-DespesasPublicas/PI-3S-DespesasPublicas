@@ -473,6 +473,102 @@ div[vw] {
    FIM MODO ESCURO GLOBAL
    ============================================= */
 
+/* =========================
+   TEMA ESCURO DESPESAS
+========================= */
+
+.dark html {
+  background-color: #121212;
+}
+
+.dark {
+  background-color: #1e2533;
+  color: #cbd5e1;
+}
+
+.dark h1,
+.dark h2 {
+  color: #90caf9;
+}
+
+.dark .loadingM {
+  color: #cbd5e1;
+}
+
+.dark .filtroD {
+  color: #cbd5e1;
+  background-color: #1e2533;
+}
+
+.dark .selectM {
+  color: #cbd5e1;
+  background-color: #1e2533;
+  border-color: #cbd5e1;
+}
+
+.dark .selectM:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.dark .container {
+  background-color: #1e2533;
+  color: #cbd5e1;
+}
+
+.dark .container > div:first-of-type {
+  color: #cbd5e0;
+  background-color: #1e2533;
+}
+
+.dark .container > div:first-of-type label {
+  color: #cbd5e0;
+  background-color: #1e2533;
+}
+
+.dark .cards .card {
+  color: #cbd5e0;
+  background-color: #1e2533;
+    box-shadow:
+    0 14px 36px rgba(10, 16, 29, 0.12),
+    0 4px 10px rgba(10, 16, 29, 0.12);
+}
+
+.dark .card .title {
+  color: #90caf9;
+}
+
+.dark .tableDespesas {
+  color: #ecf2f8;
+  background-color: #1e2533;
+    box-shadow:
+    0 14px 36px rgba(10, 16, 29, 0.12),
+    0 4px 10px rgba(10, 16, 29, 0.12);
+}
+
+.dark .btnDespesas {
+  background-color: #003d72;
+  color: #e0e0e0;
+}
+
+.dark .td {
+  color: #cbd5e0;
+  background-color: #1e2533;
+}
+
+.dark .erroTexts {
+  color: #cbd5e0;
+  background-color: #1e2533;
+}
+
+.dark p {
+  color: #cbd5e0;
+}
+
+/* =========================
+   FIM TEMA ESCURO DESPESAS
+========================= */
+
 /* =============================================
    FIM ACESSIBILIDADE
    ============================================= */

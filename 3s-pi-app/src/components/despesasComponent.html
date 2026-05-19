@@ -1,41 +1,41 @@
 <div class="container">
 
-  <h1>Consulta de Despesas - {{ ano }}</h1>
+  <h1 class="title">Consulta de Despesas - {{ ano }}</h1>
 
   <!-- FILTRO -->
   <div *ngIf="!loadingMeses">
 
-    <label>Mês:</label>
+    <label class="filtroD">Mês:</label>
 
-    <select [(ngModel)]="mesSelecionado">
+    <select class="selectM" [(ngModel)]="mesSelecionado">
       <option *ngFor="let mes of mesesDisponiveis" [value]="mes.valor">
         {{ mes.nome }}
       </option>
     </select>
 
-    <button (click)="aplicarFiltro()">Aplicar</button>
+    <button class="btnDespesas" (click)="aplicarFiltro()">Aplicar</button>
 
   </div>
 
   <!-- ERRO -->
-  <div *ngIf="erro">
+  <div class="erroTexts" *ngIf="erro">
     {{ erro }}
   </div>
 
   <!-- LOADING -->
-  <div *ngIf="loading">
+  <div class="loadingM" *ngIf="loading">
     Carregando dados de {{ nomeMes }}...
   </div>
 
   <!-- CONTEÚDO -->
-  <div *ngIf="!loading && !erro && temDados">
+  <div class="erroTexts" *ngIf="!loading && !erro && temDados">
 
     <!-- RESUMO -->
     <div class="cards">
 
       <div class="card">
         <p>Orçado</p>
-        <h3>{{ resumo.orcado | currency:'BRL' }}</h3>
+        <h3 class="title">{{ resumo.orcado | currency:'BRL' }}</h3>
       </div>
 
       <!-- <div class="card">
@@ -45,19 +45,19 @@
 
       <div class="card">
         <p>Liquidado</p>
-        <h3>{{ resumo.liquidado | currency:'BRL' }}</h3>
+        <h3 class="title">{{ resumo.liquidado | currency:'BRL' }}</h3>
       </div>
 
       <div class="card">
         <p>Pago</p>
-        <h3>{{ resumo.pago | currency:'BRL' }}</h3>
+        <h3 class="title">{{ resumo.pago | currency:'BRL' }}</h3>
       </div>
 
     </div>
 
     <!-- POR ORGÃO -->
-    <h2>Por Órgão</h2>
-    <table>
+    <h2 class="title">Por Órgão</h2>
+    <table class="tableDespesas">
       <tr *ngFor="let item of porOrgao">
         <td>{{ item.orgao }}</td>
         <td>{{ item.valor | currency:'BRL' }}</td>
@@ -65,8 +65,8 @@
     </table>
 
     <!-- CREDORES -->
-    <h2>Top Credores</h2>
-    <table>
+    <h2 class="title">Top Credores</h2>
+    <table class="tableDespesas">
       <tr *ngFor="let item of topCredores">
         <td>{{ item.credor }}</td>
         <td>{{ item.valor | currency:'BRL' }}</td>
@@ -74,8 +74,8 @@
     </table>
 
     <!-- PROGRAMAS -->
-    <h2>Por Programa</h2>
-    <table>
+    <h2 class="title">Por Programa</h2>
+    <table class="tableDespesas">
       <tr *ngFor="let item of topProgramas">
         <td>{{ item.programa }}</td>
         <td>{{ item.valor | currency:'BRL' }}</td>
@@ -85,7 +85,7 @@
   </div>
 
   <!-- SEM DADOS -->
-  <div *ngIf="!loading && !erro && !temDados">
+  <div class="erroTexts" *ngIf="!loading && !erro && !temDados">
     Nenhum dado disponível
   </div>
 
