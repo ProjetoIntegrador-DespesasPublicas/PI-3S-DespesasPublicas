@@ -1,0 +1,97 @@
+import requests
+
+def buscar_despesas(ano, mes, token_acesso, **kwargs):
+    """
+    Função para buscar despesas na API SOF v4 da Prefeitura de SP.
+    
+    Parâmetros obrigatórios:
+    :param ano: Ano da dotação (ex: '2023')
+    :param mes: Mês do movimento (ex: '05')
+    :param token_acesso: Seu Bearer Token gerado no portal da API
+    
+    Parâmetros opcionais (passados via **kwargs):
+    codEmpresa, codOrgao, codUnidade, codFuncao, codSubFuncao, 
+    codProjetoAtividade, codPrograma, codCategoria, codGrupo, 
+    codModalidade, codElemento, codFonteRecurso, codReferencia
+    """
+    
+    # ATENÇÃO: Substitua pela URL base/Gateway correta da API. 
+    # Geralmente fica na aba "Visão Geral" ou "Console da API" no portal.
+    url = "https://gateway.apilib.prefeitura.sp.gov.br/sf/sof/v4/despesas"
+    
+    # Cabeçalhos da requisição (onde vai a autenticação)
+    headers = {
+        "Authorization": f"Bearer {token_acesso}",
+        "Accept": "application/json"
+    }
+    
+    # Montando os parâmetros da URL (Query Parameters)
+    params = {
+        "anoDotacao": ano,
+        "mesDotacao": mes
+    }
+    
+    # Adiciona os parâmetros opcionais que foram enviados
+    for key, value in kwargs.items():
+        if value is not None:
+            params[key] = value
+
+    try:
+        # Fazendo a requisição GET
+        print(f"Fazendo requisição para: {url}...")
+        response = requests.get(url, headers=headers, params=params)
+        
+        # Verifica se a requisição foi bem sucedida (Status 200 OK)
+        response.raise_for_status()
+        
+        # Retorna os dados em formato JSON (dicionário Python)
+        return response.json()
+        
+    except requests.exceptions.HTTPError as errh:
+        print(f"Erro HTTP: {errh}")
+        if response.status_code == 403:
+            print("\n[!] DICA: Erro 403 (Forbidden) indica falta de permissão.")
+            print("Provavelmente sua Aplicação não está inscrita (Subscribed) na API SOF v4.")
+            print("Acesse o portal APILIB da prefeitura, vá na página da API e clique em Inscrever-se.\n")
+        print(f"Detalhes: {response.text}")
+    except requests.exceptions.ConnectionError as errc:
+        print(f"Erro de Conexão: {errc}")
+    except requests.exceptions.Timeout as errt:
+        print(f"Timeout: {errt}")
+    except requests.exceptions.RequestException as err:
+        print(f"Erro inesperado: {err}")
+
+# ==========================================
+# Exemplo de como usar a função
+# ==========================================
+if __name__ == "__main__":
+    # 1. Coloque seu token gerado no site da prefeitura aqui
+    MEU_TOKEN = "74afe7f1-c239-3545-af30-b383914b0c76"
+    
+    # 2. Definindo os parâmetros obrigatórios
+    ano_pesquisa = "2023"
+    mes_pesquisa = "08"
+    
+    # 3. Chamando a função (com alguns parâmetros opcionais de exemplo)
+    dados_despesas = buscar_despesas(
+        ano=ano_pesquisa, 
+        mes=mes_pesquisa, 
+        token_acesso=MEU_TOKEN,
+        # Comentando os filtros específicos para trazer todos os resultados do mês!
+        # codOrgao="10",
+        # codFuncao="04"
+    )
+    
+    # 4. Mostrando o resultado
+    if dados_despesas:
+        print("Dados retornados com sucesso!")
+        
+        status = dados_despesas.get("metaDados", {}).get("txtStatus", "")
+        lista_despesas = dados_despesas.get("lstDespesas", [])
+        
+        if status == "SEM REGISTROS" or not lista_despesas:
+            print("\n[-] A pesquisa funcionou, mas não há registros para esses filtros.")
+        else:
+            print(f"\n[+] Sucesso! Encontrados {len(lista_despesas)} registros nesta página.")
+            print("Exibindo o primeiro registro:\n")
+            print(lista_despesas[0])

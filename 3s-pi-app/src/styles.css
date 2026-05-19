@@ -1,3 +1,460 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-mint-500: oklch(0.72 0.11 178);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --color-footer: #1080c4;
+  --spacing-footer: 20px;
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+}
+
+body {
+  margin: 10;
+  padding: 10;
+  width: 100%;
+}
+
+.cardHomeContainer {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 2px;
+  padding: 10px;
+  box-shadow: var(--box-shadow);
+}
+
+.cardHomediv div {
+  text-align: center;
+  padding: 20px;
+  font-size: 30px;
+}
+
+a:hover{
+  text-decoration: none;
+  color: #003d72;
+}
+
+.titleCard{
+  color: var(--color-footer);
+}
+
+.textCard{
+    color: black;
+    text-align: justify;
+}
+
+.image1 {
+  width: 70px;
+  height: 50px;
+}
+
+img {
+    width: 80%;
+    margin: auto;
+}
+
+.item1 {
+  grid-column: 1 / span 2;
+}
+
+.menu {
+  display: flex;
+  gap: 20px;
+  justify-content: flex-end;
+  width: 100%;
+  height: 75px;
+  margin: auto;
+}
+
+ul {
+  position: left;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+ul li {
+  list-style: none;
+  font-size: 14px;
+  margin: 10px;
+}
+
+h1{
+    color: #24719F;
+    font-size: larger;
+}
+
+p{
+  padding: 10px;
+}
+
+.tittle {
+  margin: auto;
+  padding: 1px;
+  float: left;
+  color: var(--color-footer);
+}
+
+container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.buttonPage{
+  /*padding: 8px;*/
+  font-size: 45px;
+  display: flex;
+  color: #1080c4;
+  color: transparent;
+  font-weight: bold;
+}
+
+.textCard{
+  padding: 40px;
+}
+
+.footer {
+  width: 100%;
+  background-color: var(--color-footer);
+  color: white;
+  text-align: center;
+  font-size: 12px;
+}
+
+/* =============================================
+   HEADER
+   ============================================= */
+
+.header-bar {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background-color: #f0f2f4;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.header-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-footer);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  flex: 1;
+  height: 100%;
+  margin: 0 16px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 16px;
+  font-size: 0.88rem;
+  color: #4a5568;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease,
+              color 0.2s ease,
+              border-bottom-color 0.2s ease;
+}
+
+.nav-active {
+  background-color: #e8f0fe;
+  color: var(--color-footer);
+  border-bottom: 2px solid var(--color-footer);
+}
+
+.nav-item:hover {
+  background-color: #dde3ea;
+  color: var(--color-footer);
+  border-bottom-color: var(--color-footer);
+}
+
+.theme-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--color-footer);
+  color: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: filter 0.2s ease;
+}
+
+.theme-btn:hover {
+  filter: brightness(1.15);
+}
+
+/* ── Header modo escuro ── */
+.dark .header-bar {
+  background-color: #1e2533;
+}
+
+.dark .header-title {
+  color: #90caf9;
+}
+
+.dark .nav-item {
+  color: #cbd5e0;
+}
+
+.dark .nav-active {
+  background-color: #1a2f4a;
+  color: #90caf9;
+  border-bottom-color: #90caf9;
+}
+
+.dark .nav-item:hover {
+  background-color: #1a2f4a;
+  color: #90caf9;
+  border-bottom-color: #90caf9;
+}
+
+.dark .theme-btn {
+  background-color: #003d72;
+}
+
+/* =============================================
+   FIM HEADER
+   ============================================= */
+
+   /* =============================================
+   CARD HOME — BOAS VINDAS (cardHome2)
+   ============================================= */
+
+.welcome-card-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 32px 24px 16px 24px;
+  box-sizing: border-box;
+}
+
+.welcome-card {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  max-width: 1000px;
+  width: 100%;
+  padding: 40px 48px;
+  background-color: #f5f7fa;
+  border-radius: 12px;
+  box-shadow:
+    0 14px 36px rgba(15, 23, 42, 0.16),
+    0 4px 10px rgba(15, 23, 42, 0.12);
+  box-sizing: border-box;
+}
+
+.welcome-card-image img {
+  display: block;
+  width: 260px;
+  height: 260px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.welcome-card-text {
+  flex: 1;
+  text-align: left;
+  padding-right: 40px;
+}
+
+.welcome-card-text h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--color-footer);
+}
+
+.welcome-card-text p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: #4a5568;
+  max-width: 420px;
+}
+
+@media (max-width: 768px) {
+  .welcome-card-wrapper {
+    padding: 24px 16px;
+  }
+
+  .welcome-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px;
+    gap: 24px;
+  }
+
+  .welcome-card-image img {
+    width: 100%;
+    height: auto;
+    max-width: 320px;
+  }
+
+  .welcome-card-text {
+    padding-right: 0;
+  }
+
+  .welcome-card-text h2 {
+    font-size: 1.3rem;
+  }
+}
+
+/* =============================================
+   FIM CARD HOME — BOAS VINDAS
+   ============================================= */
+
+   /* =============================================
+   ACESSIBILIDADE
+   ============================================= */
+
+/* Barra de botões de acessibilidade no header */
+.accessibility-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Botão ativo (Libras ou Narração ligados) */
+.active-btn {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Modo escuro — botão ativo */
+.dark .active-btn {
+  outline-color: #90caf9;
+}
+
+/* Transição suave ao mudar tamanho de fonte */
+html {
+  transition: font-size 0.2s ease;
+}
+
+/* =============================================
+   ACESSIBILIDADE — MODO ESCURO GLOBAL
+   ============================================= */
+
+/* Fundo e texto geral da página */
+.dark body {
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+/* Cards gerais */
+.dark .welcome-card {
+  background-color: #1e2533;
+  color: #e0e0e0;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.4),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.dark .welcome-card-text h2 {
+  color: #90caf9;
+}
+
+.dark .welcome-card-text p {
+  color: #cbd5e0;
+}
+
+/* Links e itens de menu geral */
+.dark a {
+  color: #90caf9;
+}
+
+.dark a:hover {
+  background-color: #1a2f4a;
+  color: #90caf9;
+}
+
+/* Títulos gerais */
+.dark h1,
+.dark h2,
+.dark h3 {
+  color: #90caf9;
+}
+
+/* Parágrafos gerais */
+.dark p {
+  color: #cbd5e0;
+}
+
+/* Texto dos cards */
+.dark .textCard {
+  color: #cbd5e0;
+}
+
+.dark .titleCard {
+  color: #90caf9;
+}
+
+/* Footer */
+.dark .footer {
+  background-color: #003d72;
+  color: #e0e0e0;
+}
+
+/* Fundo geral da página inteira */
+.dark html,
+.dark body {
+  background-color: #121212;
+}
+
+/* VLibras — escondido por padrão, aparece ao clicar no botão */
+div[vw] {
+  display: none;
+}
+
+/* =============================================
+   FIM MODO ESCURO GLOBAL
+   ============================================= */
+
+/* =============================================
+   FIM ACESSIBILIDADE
+   ============================================= */
