@@ -9,7 +9,6 @@ const routes: Routes = [
   { path: 'despesas', component: DespesasPageComponent },
   { path: 'dashboard', component: DashboardComponent },
   // { path: 'dashboard', component: DashboardPageComponent },
-  // Add other routes as needed
 ];
 
 export default routes;

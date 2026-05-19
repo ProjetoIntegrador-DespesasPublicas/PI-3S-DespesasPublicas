@@ -39,5 +39,3 @@ import { DespesasComponent } from '../components/despesas';
   `]
 })
 export class DespesasPageComponent {}
-
-
